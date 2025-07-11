@@ -144,5 +144,7 @@ You are a clinical information extraction specialist. Your task is to analyze un
 - Common section headers: "IMPRESSION", "FINDINGS", "ASSESSMENT", "PLAN", "HISTORY OF PRESENT ILLNESS"
 - Medication list markers: "Home Medications", "Current Rx", "Discharge Medications"
 - Lab/Imaging prefixes: "LAB RESULTS", "RADIOLOGY REPORT", "PATHOLOGY FINDINGS"
+
+**If not able to process include the reason in response in json format
 """
 

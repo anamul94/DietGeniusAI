@@ -5,11 +5,11 @@ from typing import Dict, List, Any, Optional
 from fastapi import UploadFile
 from typing import List
 from app.services.bedrock_service import BedrockService
-from app.constants.prompts import MEDICAL_REPORT_PARSER_PROMPT_2
+from app.constants.prompts import MEDICAL_REPORT_PARSER_PROMPT
 from app.core.logging import logger
 class MedicalReportParserService:
     def __init__(self):
-        pass
+        self.bedrock = BedrockService()
         
 
     async def process_medical_report(
@@ -19,15 +19,39 @@ class MedicalReportParserService:
         """Main processing pipeline for medical reports"""
 
         try:
-            files_to_process = []
+            docs_to_process = []
+            images_to_process = []
+
             for file in files:
                 content = await file.read()
                 filename = file.filename
                 file_extension = filename.split(".")[-1].lower()
-                files_to_process.append((content, filename, file_extension))
-            bedrock = BedrockService()
-            result = await bedrock.process_multiple_medical_documents(files_to_process, MEDICAL_REPORT_PARSER_PROMPT_2)
-            return result
+
+                if file_extension in ["pdf", "doc", "docx", "txt"]:
+                    
+                    docs_to_process.append((content, filename, file_extension))
+                elif file_extension in ["jpg", "jpeg", "png", "webp"]:
+                    images_to_process.append((content, filename))
+                else:
+                    # Optional: Skip or raise error for unsupported types
+                    continue  # or raise HTTPException
+
+            
+            all_results = []
+            
+            if docs_to_process:
+                doc_results = await self.bedrock.process_multiple_documents(docs_to_process, MEDICAL_REPORT_PARSER_PROMPT)
+                all_results.extend(doc_results)
+            
+            if images_to_process:
+                image_results = await self.bedrock.process_multiple_images(images_to_process, MEDICAL_REPORT_PARSER_PROMPT)
+                all_results.extend(image_results)
+            
+            return {
+                "processing_status": "completed",
+                "results": all_results,
+                "total_files": len(all_results)
+            }
             
         except Exception as e:
             logger.error(e)
