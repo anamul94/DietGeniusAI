@@ -1,6 +1,7 @@
-from fastapi import APIRouter, Depends, File, UploadFile, HTTPException, status
-from typing import List
+from fastapi import APIRouter, Depends, File, UploadFile, HTTPException, status, Query
+from typing import List, Optional
 from sqlalchemy.orm import Session
+from sqlalchemy import desc
 from app.core.logging import logger
 from app.services.medical_parser import MedicalReportParserService
 from app.api.deps import get_current_active_user
@@ -78,4 +79,51 @@ async def upload_file(
     except Exception as e:
         logger.error(f"Error processing medical report for user {current_user.id}: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail="Failed to process medical report. Please try again later.")
+
+
+@router.get("/medical", status_code=status.HTTP_200_OK)
+async def get_medical_reports(
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db),
+    page: int = Query(1, ge=1, description="Page number"),
+    limit: int = Query(10, ge=1, le=100, description="Items per page")
+):
+    """Get paginated medical reports for the current user, sorted by date (newest first)"""
+    
+    try:
+        offset = (page - 1) * limit
+        
+        # Get total count
+        total = db.query(MedicalReport).filter(MedicalReport.user_id == current_user.id).count()
+        
+        # Get paginated results
+        reports = (
+            db.query(MedicalReport)
+            .filter(MedicalReport.user_id == current_user.id)
+            .order_by(desc(MedicalReport.created_at))
+            .offset(offset)
+            .limit(limit)
+            .all()
+        )
+        
+        return {
+            "reports": [
+                {
+                    "id": str(report.id),
+                    "medical_report": report.medical_report,
+                    "uploaded_at": report.created_at
+                }
+                for report in reports
+            ],
+            "pagination": {
+                "page": page,
+                "limit": limit,
+                "total": total,
+                "pages": (total + limit - 1) // limit
+            }
+        }
+        
+    except Exception as e:
+        logger.error(f"Error fetching medical reports for user {current_user.id}: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to fetch medical reports. Please try again later.")
 
