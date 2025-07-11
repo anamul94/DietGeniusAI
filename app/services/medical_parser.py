@@ -5,7 +5,7 @@ from typing import Dict, List, Any, Optional
 from fastapi import UploadFile
 from typing import List
 from app.services.bedrock_service import BedrockService
-from app.constants.prompts import MEDICAL_REPORT_PARSER_PROMPT
+from app.constants.prompts import MEDICAL_REPORT_PARSER_PROMPT_2
 from app.core.logging import logger
 class MedicalReportParserService:
     def __init__(self):
@@ -26,7 +26,7 @@ class MedicalReportParserService:
                 file_extension = filename.split(".")[-1].lower()
                 files_to_process.append((content, filename, file_extension))
             bedrock = BedrockService()
-            result = await bedrock.process_multiple_medical_documents(files_to_process, MEDICAL_REPORT_PARSER_PROMPT)
+            result = await bedrock.process_multiple_medical_documents(files_to_process, MEDICAL_REPORT_PARSER_PROMPT_2)
             return result
             
         except Exception as e:

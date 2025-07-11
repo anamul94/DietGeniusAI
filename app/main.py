@@ -4,6 +4,10 @@ from starlette.middleware.sessions import SessionMiddleware
 from app.api.routes import users, medical_reports
 from app.core.config import settings
 from app.db.base import Base, engine
+from app.core.logging import setup_logger
+
+# Set up logger
+logger = setup_logger()
 
 # Create database tables
 Base.metadata.create_all(bind=engine)
@@ -32,11 +36,21 @@ app.include_router(auth.router, prefix="/api/auth", tags=["auth"])
 app.include_router(users.router, prefix="/api/users", tags=["users"])
 app.include_router(medical_reports.router, prefix="/api/medical-reports", tags=["medical-reports"])
 
+@app.on_event("startup")
+async def startup_event():
+    logger.info("Starting up application...")
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    logger.info("Shutting down application...")
+
 @app.get("/")
 def root():
+    logger.info("Root endpoint accessed")
     return {"message": "Welcome to DietGeniusAI"}
 
 @app.get("/health")
 def health_check():
+    logger.info("Health check endpoint accessed")
     return {"status": "healthy"}
 

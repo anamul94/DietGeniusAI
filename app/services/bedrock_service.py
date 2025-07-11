@@ -8,9 +8,9 @@ from app.constants.bedrock import (
     ANTHROPIC_SONNET_4,
     NOVA_LITE,NOVA_PRO
 )
-
-# Claude 3 Haiku model ID
-# client = boto3.client("bedrock-runtime", region_name="ap-south-1")
+import json
+import re
+from app.core.logging import logger
 
 class BedrockService:
     def __init__(self,region_name="ap-south-1"):
@@ -35,7 +35,7 @@ class BedrockService:
         results = []
 
         for file_bytes, filename, file_format in files:
-            # Remove extension from filename for Bedrock
+            logger.info(f"Processing document: {filename} with format: {file_format}")
             name_without_ext = filename.rsplit('.', 1)[0] if '.' in filename else filename
             
             conversation = [
@@ -45,7 +45,7 @@ class BedrockService:
                         {"text": prompt},
                         {
                             "document": {
-                                "format": file_format,  # dynamic
+                                "format": file_format,
                                 "name": name_without_ext,
                                 "source": {"bytes": file_bytes},
                             }
@@ -56,14 +56,17 @@ class BedrockService:
 
             try:
                 response = self.client.converse(
-                    modelId=ANTHROPIC_HAIKU_3,
+                    modelId=ANTHROPIC_SONNET_3,
                     messages=conversation,
                     inferenceConfig={ "temperature": 0.1},
                 )
                 response_text = response["output"]["message"]["content"][0]["text"]
-                results.append((filename, response_text))
+                json_str = re.sub(r"^```json\n|```$", "", response_text.strip())
+                results.append((filename, json.loads(json_str)))
+                logger.info(f"Successfully processed document: {filename}")
 
             except (ClientError, Exception) as e:
+                logger.error(f"Error processing document {filename}: {str(e)}")
                 results.append((filename, f"ERROR: {str(e)}"))
 
         return results
