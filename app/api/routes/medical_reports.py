@@ -1,10 +1,12 @@
-from fastapi import APIRouter, Depends, File, UploadFile, HTTPException, status, Request
-from fastapi.responses import JSONResponse
-import shutil
-import os
+from fastapi import APIRouter, Depends, File, UploadFile, HTTPException, status
 from typing import List
+from sqlalchemy.orm import Session
 from app.core.logging import logger
 from app.services.medical_parser import MedicalReportParserService
+from app.api.deps import get_current_active_user
+from app.models.user import User
+from app.models.medical import MedicalReport
+from app.db.base import get_db
 
 
 router = APIRouter()
@@ -23,7 +25,11 @@ allowed_mime_types = {
 medicla_parser_service = MedicalReportParserService()
 
 @router.post("/medical", status_code=status.HTTP_200_OK)
-async def upload_file(files: List[UploadFile] = File(...)):
+async def upload_file(
+    files: List[UploadFile] = File(...),
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
     if not files:
         logger.warning("No files provided in medical report upload")
         raise HTTPException(status_code=400, detail="No files provided")
@@ -47,13 +53,29 @@ async def upload_file(files: List[UploadFile] = File(...)):
                     )
         
         result = await medicla_parser_service.process_medical_report(files)
-        logger.info("Successfully processed medical report")
-        return result
+        logger.info(f"Successfully processed medical report for user {current_user.id}")
+        
+        # Save to database
+        medical_report = MedicalReport(
+            user_id=current_user.id,
+            medical_report=result.get("results", []),
+        )
+        db.add(medical_report)
+        db.commit()
+        db.refresh(medical_report)
+        
+        logger.info(f"Medical report saved to database with ID: {medical_report.id}")
+        
+        return {
+            "id": medical_report.id,
+            "processing_status": "completed",
+            "data": result
+        }
         
     except HTTPException as e:
-        logger.error(f"HTTP exception during file processing: {e.detail}")
+        logger.error(f"HTTP exception during file processing for user {current_user.id}: {e.detail}")
         raise
     except Exception as e:
-        logger.error(f"Error processing files: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+        logger.error(f"Error processing medical report for user {current_user.id}: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to process medical report. Please try again later.")
 

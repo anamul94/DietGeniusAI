@@ -107,6 +107,7 @@ async def auth_google_callback(request: Request, db: Session = Depends(get_db), 
     try:
         token = await oauth.google.authorize_access_token(request)
         user_info = token.get('userinfo')
+        logger.info(f"Google user info: {user_info}")
         
         if not user_info:
             user_info = await oauth.google.parse_id_token(request, token)

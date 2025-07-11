@@ -1,5 +1,6 @@
 from sqlalchemy import Boolean, Column, Integer, String, DateTime, Enum
 from sqlalchemy.sql import func
+from sqlalchemy.orm import relationship
 import enum
 from app.db.base import Base
 
@@ -18,3 +19,6 @@ class User(Base):
     role = Column(Enum(UserRole), default=UserRole.USER)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    
+    # Relationships
+    medical_reports = relationship("MedicalReport", back_populates="user")
