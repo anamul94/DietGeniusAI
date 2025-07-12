@@ -1,0 +1,35 @@
+import sys
+import os
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..')))
+
+from agno.memory.v2.db.postgres import PostgresMemoryDb
+from agno.memory.v2.memory import Memory, MemoryManager, SessionSummarizer
+from agno.models.base import Model
+from typing import Optional
+
+
+async def get_memory_with_manager(memory_model:Optional[Model] = None,
+                                  memory_manager_model:Optional[Model] = None,
+                                  system_message: str | None = None,
+                                  memory_capture_instructions: str | None = None,
+                                 additional_instructions: str | None = None):
+    
+    
+    
+    memory_db = PostgresMemoryDb(table_name="memory",
+                             schema="public",
+                             db_url="postgresql://postgres:1234@localhost:5433/deitgeniusdb")
+    memory_manager =  MemoryManager(
+        model=memory_manager_model,
+        system_message=system_message,
+        memory_capture_instructions=memory_capture_instructions,
+        additional_instructions=additional_instructions,
+    )
+    return Memory(
+        model=memory_model,
+        memory_manager=memory_manager,
+        db=memory_db
+    )
+
+
+
