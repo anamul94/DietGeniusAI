@@ -1,13 +1,15 @@
 from fastapi import APIRouter, Depends, File, UploadFile, HTTPException, status, Query
 from typing import List, Optional
 from sqlalchemy.orm import Session
-from sqlalchemy import desc
 from app.core.logging import logger
 from app.services.medical_parser import MedicalReportParserService
+from app.services.medical import get_user_medical_reports_paginated
 from app.api.deps import get_current_active_user
 from app.models.user import User
 from app.models.medical import MedicalReport
 from app.db.base import get_db
+
+from app.schemas.qa import QA, QaAns
 
 
 router = APIRouter()
@@ -91,20 +93,10 @@ async def get_medical_reports(
     """Get paginated medical reports for the current user, sorted by date (newest first)"""
     
     try:
-        offset = (page - 1) * limit
+        result = get_user_medical_reports_paginated(db, current_user.id, page, limit)
         
-        # Get total count
-        total = db.query(MedicalReport).filter(MedicalReport.user_id == current_user.id).count()
-        
-        # Get paginated results
-        reports = (
-            db.query(MedicalReport)
-            .filter(MedicalReport.user_id == current_user.id)
-            .order_by(desc(MedicalReport.created_at))
-            .offset(offset)
-            .limit(limit)
-            .all()
-        )
+        if not result:
+            raise HTTPException(status_code=500, detail="Failed to fetch medical reports")
         
         return {
             "reports": [
@@ -113,13 +105,13 @@ async def get_medical_reports(
                     "medical_report": report.medical_report,
                     "uploaded_at": report.created_at
                 }
-                for report in reports
+                for report in result.items
             ],
             "pagination": {
-                "page": page,
-                "limit": limit,
-                "total": total,
-                "pages": (total + limit - 1) // limit
+                "page": result.page,
+                "limit": result.limit,
+                "total": result.total,
+                "pages": result.pages
             }
         }
         
@@ -127,3 +119,26 @@ async def get_medical_reports(
         logger.error(f"Error fetching medical reports for user {current_user.id}: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail="Failed to fetch medical reports. Please try again later.")
 
+
+
+@router.post("/onboarding-qa",response_model=QA)
+async def onoarding_qa(
+    ans:QaAns,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+    ):
+    try:
+        # Generate next question based on count
+        if ans.count == 0:
+            next_question = "What is your age?"
+        
+        qa = QA(
+            question=next_question,
+            count=qa.count + 1
+        )
+        logger.info(f"User {current_user.id} answered: {qa.answer}")
+        return ans
+    except Exception as e:
+        logger.error(f"Error in onboarding QA for user {current_user.id}: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to process onboarding QA.")
+    

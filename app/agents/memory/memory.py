@@ -6,11 +6,11 @@ from app.core.database_config import get_database_config
 import os
 
 
-async def get_memory_with_manager(memory_model:Optional[Model] = None,
+def get_memory_with_manager(memory_model:Optional[Model] = None,
                                   memory_manager_model:Optional[Model] = None,
                                   system_message: str | None = None,
                                   memory_capture_instructions: str | None = None,
-                                 additional_instructions: str | None = None):
+                                 additional_instructions: str | None = None)->Memory:
     
     
     

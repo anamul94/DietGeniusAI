@@ -1,4 +1,5 @@
 
+from textwrap import dedent
 
 # MEDICAL_REPORT_PARSER_PROMPT = """
 # Extract relevant medical information from the provided documents and structure it in standardized EHR (Electronic Health Record) format.
@@ -15,7 +16,7 @@
 # Output should be clear, structured, and suitable for integration into an EHR system.
 # """
 
-MEDICAL_REPORT_PARSER_PROMPT = """
+MEDICAL_REPORT_PARSER_PROMPT = dedent("""
 You are a clinical information extraction assistant. Your task is to analyze the given unstructured medical report and extract all relevant information into a structured format that aligns with standardized EHR (Electronic Health Record) fields.
 
 Focus on capturing clinically meaningful and actionable data with high accuracy.
@@ -72,7 +73,7 @@ Be concise but clinically complete. Do not infer information not present in the 
 
 Ensure the final output is clean, machine-readable, and ready for integration into an EHR system.
 """
-
+)
 MEDICAL_REPORT_PARSER_PROMPT_2 = """
 You are a clinical information extraction specialist. Your task is to analyze unstructured medical reports and extract all relevant clinical data with high accuracy, organizing it into a standardized EHR-compatible JSON structure.
 
@@ -148,3 +149,51 @@ You are a clinical information extraction specialist. Your task is to analyze un
 **If not able to process include the reason in response in json format
 """
 
+REPORT_SUMMARY_PROMPT = dedent("""\
+   From the medical report and user context make summary .
+   it should be maintain ehr or proper medical format. doctor understanding format
+   should extract key insights and provide a concise summary of the medical report.
+   If you are unable to process the report, please provide the reason in JSON format.
+   """)
+
+
+MEMORY_CAPTURE_INSTRUCTIONS = dedent("""\
+Memories should include key information that enables the AI dietitian to provide personalized and context-aware nutrition guidance. This includes:
+
+- 👤 **User Profile and Background**
+  - Full name, age, gender, location, occupation
+  - Lifestyle context (e.g., sedentary, active, shift worker)
+  - Health goals (e.g., weight loss, muscle gain, managing diabetes)
+
+- 🧾 **Medical History and Reports**
+  - Diagnosed conditions (e.g., diabetes, hypertension, PCOS)
+  - Relevant lab test results and biomarkers (e.g., cholesterol, blood sugar, creatinine)
+  - Allergies or food intolerances
+  - Medications or prescriptions that affect nutrition
+  - Medical restrictions or doctor's dietary recommendations
+
+- 🍽️ **Dietary Preferences and Restrictions**
+  - Preferred cuisines, foods the user enjoys or dislikes
+  - Religious or cultural food practices (e.g., vegetarian, Halal)
+  - Known allergies or ingredients to avoid
+
+- 🏃 **Physical Activity and Lifestyle**
+  - Typical daily routine or schedule
+  - Workout or exercise frequency, type, and duration
+  - Sedentary vs active job
+  - Sleep patterns or energy complaints
+
+- 📥 **User Input Over Time**
+  - Food intake logs and nutrition uploads (photos, entries)
+  - Changes in goals or preferences
+  - Consistency or adherence to past recommendations
+
+- 🎯 **AI Observations & Long-Term Needs**
+  - Trends in lab results or lifestyle behavior
+  - Motivation levels or potential mental blocks
+  - Long-term support needs (e.g., managing chronic illness, recovering post-surgery)
+
+Focus on capturing facts and insights that will improve long-term personalization, help the AI understand the user's evolving health context, and enable more effective nutrition guidance over time. 
+
+If the user shares casual information (like they dislike a certain food or skipped a workout), capture it if it's relevant to their dietary planning or motivation.
+""")

@@ -3,6 +3,7 @@ from agno.memory.v2.db.postgres import PostgresMemoryDb
 from agno.memory.v2.memory import Memory, MemoryManager, SessionSummarizer
 from rich.pretty import pprint
 from agno.models.aws import AwsBedrock
+from agno.memory.v2.schema import SessionSummary, UserMemory
 # from app.constants.bedrock import NOVA_PRO
 NOVA_PRO = "apac.amazon.nova-pro-v1:0"
 
@@ -36,7 +37,7 @@ memory = Memory(
 # Reset the memory for this example
 # memory.clear()
 
-john_doe_id = "john_doe@example.com"
+john_doe_id = "anamul"
 
 agent = Agent(
     model=AwsBedrock(id=NOVA_PRO),
@@ -52,6 +53,7 @@ agent = Agent(
 
 # agent.print_response("do i suffreing any desease", stream=True)
 
+# memory.add_user_memory(user_id=john_doe_id, memory=UserMemory(memory="how are you buddy"))
 memories = memory.get_user_memories(user_id=john_doe_id)
 
 print("John Doe's memories:")

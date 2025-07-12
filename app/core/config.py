@@ -33,6 +33,9 @@ class Settings(BaseSettings):
     GOOGLE_DISCOVERY_URL: Optional[str] = os.getenv("GOOGLE_DISCOVERY_URL")
     GOOGLE_REDIRECT_URI: Optional[str] = os.getenv("GOOGLE_REDIRECT_URI")
     
+    # Memory Configuration
+    USER_MEMORY_TABLE: str = os.getenv("USER_MEMORY_TABLE", "user_memory")
+    
     @property
     def is_production(self) -> bool:
         return self.ENVIRONMENT.lower() == "production"
