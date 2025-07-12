@@ -3,7 +3,7 @@ from typing import List, Optional
 from sqlalchemy.orm import Session
 from app.core.logging import logger
 from app.services.medical_parser import MedicalReportParserService
-from app.services.medical import get_user_medical_reports_paginated
+from app.services.medical import get_user_medical_reports_paginated, user_onboarding_qa
 from app.api.deps import get_current_active_user
 from app.models.user import User
 from app.models.medical import MedicalReport
@@ -99,7 +99,7 @@ async def get_medical_reports(
             raise HTTPException(status_code=500, detail="Failed to fetch medical reports")
         
         return {
-            "reports": [
+            "data": [
                 {
                     "id": str(report.id),
                     "medical_report": report.medical_report,
@@ -129,15 +129,7 @@ async def onoarding_qa(
     ):
     try:
         # Generate next question based on count
-        if ans.count == 0:
-            next_question = "What is your age?"
-        
-        qa = QA(
-            question=next_question,
-            count=qa.count + 1
-        )
-        logger.info(f"User {current_user.id} answered: {qa.answer}")
-        return ans
+       return await user_onboarding_qa(db=db, user_id=current_user.id, ans=ans)
     except Exception as e:
         logger.error(f"Error in onboarding QA for user {current_user.id}: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail="Failed to process onboarding QA.")

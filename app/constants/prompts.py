@@ -158,42 +158,104 @@ REPORT_SUMMARY_PROMPT = dedent("""\
 
 
 MEMORY_CAPTURE_INSTRUCTIONS = dedent("""\
-Memories should include key information that enables the AI dietitian to provide personalized and context-aware nutrition guidance. This includes:
+    As an AI dietitian, capture and maintain detailed user memory to provide personalized nutrition guidance and health recommendations. Store information across the following categories:
 
-- 👤 **User Profile and Background**
-  - Full name, age, gender, location, occupation
-  - Lifestyle context (e.g., sedentary, active, shift worker)
-  - Health goals (e.g., weight loss, muscle gain, managing diabetes)
+    **MEDICAL & HEALTH PROFILE:**
+    - Medical conditions, diagnoses, and chronic diseases
+    - Current medications and supplements (with dosages and timing)
+    - Allergies, food intolerances, and dietary restrictions
+    - Recent lab results and biomarker trends (glucose, cholesterol, kidney function, etc.)
+    - Vital statistics: height, weight, BMI, blood pressure
+    - Family medical history relevant to nutrition (diabetes, heart disease, obesity)
+    - Previous medical procedures or surgeries affecting diet
+    - Healthcare provider recommendations and dietary prescriptions
 
-- 🧾 **Medical History and Reports**
-  - Diagnosed conditions (e.g., diabetes, hypertension, PCOS)
-  - Relevant lab test results and biomarkers (e.g., cholesterol, blood sugar, creatinine)
-  - Allergies or food intolerances
-  - Medications or prescriptions that affect nutrition
-  - Medical restrictions or doctor's dietary recommendations
+    **PERSONAL DEMOGRAPHICS & LIFESTYLE:**
+    - Basic info: name, age, gender, occupation, location
+    - Activity level and sedentary time (desk job, active profession)
+    - Sleep patterns and quality
+    - Stress levels and management techniques
+    - Cultural background and traditional dietary practices
+    - Religious or ethical dietary requirements
+    - Budget constraints for food purchases
+    - Cooking skills and kitchen equipment availability
 
-- 🍽️ **Dietary Preferences and Restrictions**
-  - Preferred cuisines, foods the user enjoys or dislikes
-  - Religious or cultural food practices (e.g., vegetarian, Halal)
-  - Known allergies or ingredients to avoid
+    **NUTRITION & DIETARY PATTERNS:**
+    - Current eating habits and meal timing
+    - Favorite foods, cuisines, and cooking methods
+    - Foods they dislike or refuse to eat
+    - Portion sizes and eating frequency
+    - Hydration habits and fluid intake
+    - Previous diet experiences (keto, vegan, intermittent fasting, etc.)
+    - Eating triggers (emotional, stress, boredom)
+    - Dining out frequency and preferred restaurants
+    - Grocery shopping patterns and food preparation habits
 
-- 🏃 **Physical Activity and Lifestyle**
-  - Typical daily routine or schedule
-  - Workout or exercise frequency, type, and duration
-  - Sedentary vs active job
-  - Sleep patterns or energy complaints
+    **FITNESS & EXERCISE DATA:**
+    - Workout routine: type, frequency, duration, intensity
+    - Preferred physical activities and sports
+    - Exercise goals (weight loss, muscle gain, endurance, strength)
+    - Pre/post workout nutrition preferences
+    - Recovery patterns and rest days
+    - Physical limitations or injuries affecting exercise
+    - Fitness tracking device data integration
+    - Seasonal activity variations
 
-- 📥 **User Input Over Time**
-  - Food intake logs and nutrition uploads (photos, entries)
-  - Changes in goals or preferences
-  - Consistency or adherence to past recommendations
+    **GOALS & MOTIVATIONS:**
+    - Primary health goals (weight management, disease prevention, performance)
+    - Target weight, body composition, or fitness metrics
+    - Timeline and urgency of goals
+    - Previous success and failure experiences
+    - Motivation factors and reward systems
+    - Support system (family, friends, trainers)
+    - Obstacles and challenges they anticipate
 
-- 🎯 **AI Observations & Long-Term Needs**
-  - Trends in lab results or lifestyle behavior
-  - Motivation levels or potential mental blocks
-  - Long-term support needs (e.g., managing chronic illness, recovering post-surgery)
+    **BEHAVIORAL & PSYCHOLOGICAL FACTORS:**
+    - Relationship with food (emotional eating, food anxiety)
+    - Social eating patterns and peer influences
+    - Self-discipline and willpower patterns
+    - Preferred communication style and feedback frequency
+    - Learning preferences (visual, detailed explanations, simple tips)
+    - Technology comfort level and app usage patterns
+    - Accountability preferences (daily check-ins, weekly reviews)
 
-Focus on capturing facts and insights that will improve long-term personalization, help the AI understand the user's evolving health context, and enable more effective nutrition guidance over time. 
+    **PROGRESSIVE TRACKING DATA:**
+    - Weight and body measurement changes over time
+    - Energy levels and mood correlations with diet
+    - Digestive health and gut comfort
+    - Exercise performance improvements
+    - Biomarker improvements from lab retests
+    - Adherence rates to recommendations
+    - Seasonal patterns in eating and activity
 
-If the user shares casual information (like they dislike a certain food or skipped a workout), capture it if it's relevant to their dietary planning or motivation.
-""")
+    **CONTEXTUAL PREFERENCES:**
+    - Meal planning preferences (weekly prep, daily decisions)
+    - Recipe complexity preferences (quick meals, elaborate cooking)
+    - Snacking habits and timing
+    - Travel eating patterns and challenges
+    - Work meal situations (cafeteria, packed lunch, eating out)
+    - Weekend vs weekday routine differences
+    - Special occasion eating patterns
+
+    **MEDICATION & SUPPLEMENT INTERACTIONS:**
+    - Timing of medications relative to meals
+    - Foods that enhance or inhibit medication absorption
+    - Nutrient deficiencies identified through labs
+    - Supplement preferences and previous experiences
+    - Side effects from medications affecting appetite or digestion
+
+    **COMMUNICATION & ENGAGEMENT PATTERNS:**
+    - Questions they frequently ask
+    - Topics they show most interest in
+    - Preferred reminder timing and frequency
+    - Response to different motivation strategies
+    - Feedback style that works best for them
+    - Technical issues or app feature preferences
+
+    **MEMORY UPDATE PROTOCOLS:**
+    - Continuously update based on new food logs and exercise data
+    - Flag significant changes in health metrics or goals
+    - Note seasonal patterns and adjust recommendations accordingly
+    - Track adherence patterns to refine future
+
+    """)

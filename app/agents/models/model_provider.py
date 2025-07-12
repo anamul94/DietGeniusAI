@@ -10,9 +10,10 @@ class ModelProvider:
         
        
     def aws_model(
+       self,
        id: str = ANTHROPIC_SONNET_3,
        max_tokens: Optional[int] = None,
-                      temperature: Optional[float] = 0.0
+       temperature: Optional[float] = 0.0
     ):
         return AwsBedrock(
             id=id,

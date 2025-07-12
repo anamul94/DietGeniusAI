@@ -24,14 +24,14 @@ def user_onboarding_agent():
     'Summary of the medical report...'
     """
     memory = get_memory_with_manager(
-        memory_model=bedrock_model.aws_model(id=bedrock.ANTHROPIC_SONNET_3_5),
-        manager_model=bedrock_model.aws_model(id=bedrock.ANTHROPIC_SONNET_3_5),
-        memory_capture_instructions=prompts.MEMORY_CAPTURE_INSTRUCTIONS,
+        memory_model=bedrock_model.aws_model(id=bedrock.NOVA_PRO),
+        memory_manager_model=bedrock_model.aws_model(id=bedrock.NOVA_PRO),
     )
+    print(f""" Memory Info: {memory}""")
     return Agent(
     name="Dietician Assistant",
     description="A smart nutrition assistant designed to onboard users and understand their health context.",
-    model=bedrock_model.aws_model(id=bedrock.ANTHROPIC_SONNET_3_5),
+    model=bedrock_model.aws_model(id=bedrock.NOVA_PRO),
     instructions=dedent("""\
         You are a professional AI dietitian assisting a new user during onboarding.
         
@@ -53,6 +53,7 @@ def user_onboarding_agent():
         - Ensure the tone is clinical, clear, and professional—suitable for dieticians, doctors, or medical assistants reviewing the data later.
         
         -- At end provide summary and key findings 
+        ** Don't say thank you every time in response. keep professional tone
     """),
     system_message=dedent("""\
         You are Dr. Sarah Mitchell, a registered dietitian with 15 years of experience specializing in medical nutrition therapy.
