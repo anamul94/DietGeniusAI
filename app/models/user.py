@@ -8,6 +8,10 @@ class UserRole(str, enum.Enum):
     USER = "user"
     ADMIN = "admin"
 
+class OnboardingStatus(str, enum.Enum):
+    PENDING = "pending"
+    COMPLETED = "completed"
+
 class User(Base):
     __tablename__ = "users"
 
@@ -27,6 +31,7 @@ class User(Base):
     hashed_password = Column(String)
     is_active = Column(Boolean, default=True)
     role = Column(Enum(UserRole), default=UserRole.USER)
+    onboarding_status = Column(Enum(OnboardingStatus), default=OnboardingStatus.PENDING)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
     

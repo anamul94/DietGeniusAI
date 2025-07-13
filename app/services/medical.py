@@ -4,7 +4,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from typing import Optional
 from app.core.logging import logger
 from app.models.medical import MedicalReport
-from app.models.user import User
+from app.models.user import User, OnboardingStatus
 from sqlalchemy import desc
 from app.core.pagination import BasePaginator, PaginationResult
 from app.agents.agetns import user_onboarding_agent, get_memory_test_agent
@@ -96,15 +96,30 @@ async def user_onboarding_qa(
             
             user_message = json.dumps(data_dict)
         else:
+            # Add completion instruction for round 3
+            if ans.count == 2:
+                completion_note = "This is the final question. After this response, provide a comprehensive assessment summary."
+            else:
+                completion_note = ""
+            
             data = {
-                "answer":ans.answer,
-                "qa_round":ans.count+1
+                "answer": ans.answer,
+                "qa_round": ans.count+1,
+                "completion_note": completion_note
             }
             user_message = json.dumps(data)
         
         # Process the user message
         response =  agent.run(message=user_message, user_id=str(user_id), session_id=str(user_id))
         # logger.info(f"Agent response for user {user_id}: {response}")
+        
+        # Update onboarding status if completed (after 4 rounds)
+        if ans.count >= 3:
+            user = db.query(User).filter(User.id == user_id).first()
+            if user:
+                user.onboarding_status = OnboardingStatus.COMPLETED
+                db.add(user)
+                db.commit()
         
         chat_hist = {
             "question": response.content

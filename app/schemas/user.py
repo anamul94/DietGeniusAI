@@ -2,7 +2,7 @@ from pydantic import BaseModel, EmailStr, field_validator, Field, computed_field
 from typing import Optional
 from datetime import datetime, date
 import re
-from app.models.user import UserRole
+from app.models.user import UserRole, OnboardingStatus
 from app.utils.age_calculator import calculate_age
 
 class UserBase(BaseModel):
@@ -64,6 +64,7 @@ class UserInDBBase(UserBase):
     id: int
     is_active: bool
     role: UserRole
+    onboarding_status: OnboardingStatus
     created_at: datetime
     updated_at: Optional[datetime] = None
 

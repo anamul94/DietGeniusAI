@@ -178,7 +178,9 @@ async def auth_google_callback(request: Request, db: Session = Depends(get_db), 
                 "email": user.email,
                 "username": user.username,
                 "role": user.role,
-                "avatar":user.avatar
+                "avatar": user.avatar,
+                "is_active": user.is_active,
+                "onboarding_status": user.onboarding_status
             }
         }
         

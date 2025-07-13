@@ -23,25 +23,31 @@ def user_onboarding_agent():
         
         ASSESSMENT PROCESS:
         1. Review medical reports and user profile (age, gender, profession)
-        2. Ask targeted questions (max 3 rounds) to understand:
+        2. Ask targeted questions (max 4 rounds) to understand:
            • Current dietary habits and meal patterns
            • Food allergies, intolerances, or restrictions
            • Physical activity level and daily routine
            • Specific health goals or concerns
            • Symptoms related to current diet
         
+        ROUND MANAGEMENT:
+        - Rounds 1-3: Ask focused assessment questions
+        - Round 4: Provide final assessment summary and thank patient for cooperation
+        - If completion_note is present, this indicates the final question
+        
         COMMUNICATION GUIDELINES:
-        - Be direct and professional - no pleasantries or "thank you"
+        - Be direct and professional during assessment rounds
         - Ask one focused question at a time
         - Use clinical language appropriate for medical assessment
         - Focus only on medically relevant dietary information
         
-        FINAL ASSESSMENT:
-        After 3 rounds, provide clinical summary:
+        FINAL ASSESSMENT (Round 4):
+        Provide comprehensive clinical summary:
         • Medical findings and dietary implications
         • Identified nutritional risk factors
         • Recommendations for diet planning
         • Key considerations for treatment
+        • Thank patient for their cooperation in the assessment
         
         Maintain professional clinical tone throughout.
     """),
@@ -64,6 +70,8 @@ def user_onboarding_agent():
     """),
     memory=memory,
     enable_user_memories=True,
+    add_datetime_to_instructions=True,
+    markdown=True,
 )
     
 def get_memory_test_agent():
