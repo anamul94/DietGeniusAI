@@ -83,5 +83,11 @@ def get_memory_test_agent():
       return Agent(
       model=bedrock_model.aws_model(id=bedrock.NOVA_PRO),
       memory=memory,
-      enable_user_memories=True 
+      enable_user_memories=True ,
+      markdown=True,
+      add_datetime_to_instructions=True,
+      instructions=dedent("""\
+         Generate a structured and medically accurate summary based
+         on the user's memory and experiences. The summary should be concise, clinically relevant, and easy to understand by healthcare professionals. Focus on extracting key health information such as symptoms, duration, severity, triggers, lifestyle factors,
+         and any previous medical history mentioned by the user."""),
     )

@@ -117,7 +117,7 @@ async def user_onboarding_qa(
         if ans.count >= 3:
             user = db.query(User).filter(User.id == user_id).first()
             if user:
-                user.onboarding_status = OnboardingStatus.COMPLETED
+                user.onboarding_status = "completed"
                 db.add(user)
                 db.commit()
         
@@ -142,4 +142,4 @@ async def agent_mem_test(message: str, user_id: str, ):
         agent = get_memory_test_agent()
         response = agent.run(message=message, user_id=str(user_id))
         logger.info(f"Agent response for user {user_id}: {response}")
-        return response.content 
+        return {"response": response.content}

@@ -24,9 +24,8 @@ oauth.register(
     client_secret=settings.GOOGLE_CLIENT_SECRET,
     server_metadata_url='https://accounts.google.com/.well-known/openid-configuration',
     client_kwargs={
-    'scope': 'openid email profile https://www.googleapis.com/auth/user.birthday.read https://www.googleapis.com/auth/user.gender.read'
-}
-
+        'scope': 'openid email profile'
+    }
 )
 
 router = APIRouter()
@@ -108,41 +107,35 @@ async def auth_google_callback(request: Request, db: Session = Depends(get_db), 
     try:
         logger.info(f"Google callback received with params: {dict(request.query_params)}")
         
-        # Get the authorization code from query params
-        code = request.query_params.get('code')
-        if not code:
-            raise HTTPException(status_code=400, detail="Authorization code not found")
+        # Clear any existing session state to avoid format issues
+        request.session.pop('_state_google', None)
         
-        # Exchange code for token manually to avoid state issues
-        import httpx
-        token_data = {
-            'client_id': settings.GOOGLE_CLIENT_ID,
-            'client_secret': settings.GOOGLE_CLIENT_SECRET,
-            'code': code,
-            'grant_type': 'authorization_code',
-            'redirect_uri': settings.GOOGLE_REDIRECT_URI
-        }
+        # Set proper session state format
+        state = request.query_params.get('state')
+        if state:
+            request.session['_state_google'] = {'data': state, 'exp': None}
         
-        async with httpx.AsyncClient() as client:
-            token_response = await client.post('https://oauth2.googleapis.com/token', data=token_data)
-            token = token_response.json()
+        token = await oauth.google.authorize_access_token(request)
+        logger.info(f"Token received: {token}")
         
-        if 'access_token' not in token:
-            raise HTTPException(status_code=400, detail="Failed to get access token")
-        
-        # Get user info using access token
-        async with httpx.AsyncClient() as client:
-            user_response = await client.get(
-                'https://www.googleapis.com/oauth2/v2/userinfo',
-                headers={'Authorization': f'Bearer {token["access_token"]}'}
-            )
-            user_info = user_response.json()
+        # Get user info from token
+        if 'userinfo' in token and isinstance(token['userinfo'], dict):
+            user_info = token['userinfo']
+        else:
+            user_info = await oauth.google.parse_id_token(request, token)
         
         logger.info(f"User info: {user_info}")
         
-        email = user_info.get('email')
-        name = user_info.get('name', '')
-        avatar = user_info.get('picture', '')
+        # Handle both dict and direct access
+        if isinstance(user_info, dict):
+            email = user_info.get('email')
+            name = user_info.get('name', '')
+            avatar = user_info.get('picture', '')
+        else:
+            # If user_info is not a dict, try to get from token directly
+            email = token.get('email') or getattr(user_info, 'email', None)
+            name = token.get('name', '') or getattr(user_info, 'name', '')
+            avatar = token.get('picture', '') or getattr(user_info, 'picture', '')
         
         if not email:
             raise HTTPException(status_code=400, detail="Email not provided by Google")
@@ -170,19 +163,9 @@ async def auth_google_callback(request: Request, db: Session = Depends(get_db), 
             extra_data=extra_data
         )
         
-        return {
-            "access_token": access_token,
-            "token_type": "bearer",
-            "user_info": {
-                "id": user.id,
-                "email": user.email,
-                "username": user.username,
-                "role": user.role,
-                "avatar": user.avatar,
-                "is_active": user.is_active,
-                "onboarding_status": user.onboarding_status
-            }
-        }
+        # Redirect to frontend with token and user info
+        frontend_url = f"{settings.FRONTEND_URL}/auth/callback?token={access_token}&user_id={user.id}&onboarding_status={user.onboarding_status}"
+        return RedirectResponse(url=frontend_url)
         
     except OAuthError as e:
         logger.error(f"OAuth error: {str(e)}")

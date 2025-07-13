@@ -32,6 +32,7 @@ class Settings(BaseSettings):
     GOOGLE_CLIENT_SECRET: Optional[str] = os.getenv("GOOGLE_CLIENT_SECRET")
     GOOGLE_DISCOVERY_URL: Optional[str] = os.getenv("GOOGLE_DISCOVERY_URL")
     GOOGLE_REDIRECT_URI: Optional[str] = os.getenv("GOOGLE_REDIRECT_URI")
+    FRONTEND_URL: str = os.getenv("FRONTEND_URL", "http://localhost:3000")
     
     # Memory Configuration
     USER_MEMORY_TABLE: str = os.getenv("USER_MEMORY_TABLE", "user_memory")

@@ -1,7 +1,7 @@
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import SQLAlchemyError, IntegrityError
 from typing import Optional, List, Tuple
-from app.models.user import User, UserRole
+from app.models.user import User, UserRole, OnboardingStatus
 from app.schemas.user import UserCreate, UserUpdate
 from app.core.security import get_password_hash, verify_password
 from app.core.logging import logger
@@ -55,7 +55,8 @@ def create_user(db: Session, user_in: UserCreate) -> User:
             username=user_in.username,
             hashed_password=get_password_hash(user_in.password),
             is_active=True,
-            role=user_in.role
+            role=user_in.role,
+            onboarding_status="pending"
         )
         db.add(db_user)
         db.commit()
