@@ -1,106 +1,107 @@
-# NutriGenius Frontend
+# DietApp Frontend
 
-A responsive Next.js frontend for the DietGeniusAI nutrition management application.
+## Overview
+
+This is the frontend application for the DietApp, built with Next.js. It provides a user interface for managing medical reports, viewing AI-powered health insights, and handling user authentication and onboarding.
 
 ## Features
 
-- **Google OAuth Authentication**: Secure login with Google
-- **User Onboarding**: Complete profile setup with medical file upload
-- **AI-Powered Q&A**: Interactive health assessment with AI agent
-- **Responsive Design**: Mobile-first design with medical/diet theme
-- **Medical File Upload**: Support for PDF, DOC, images (max 4 files)
-- **Dashboard**: User profile and health insights overview
+- **User Authentication:** Secure login and registration.
+- **Medical Report Management:** Upload, view, and manage medical reports.
+- **Dynamic Report Display:** Renders medical reports dynamically from JSON data, including Markdown content.
+- **AI-Powered Health Insights:** Generates and displays health insights based on medical data using a backend API.
+- **Onboarding Process:** Guides new users through initial setup, including medical information and profile creation.
+- **Responsive Design:** Built with Tailwind CSS and Shadcn UI for a modern and responsive user experience.
+- **Dockerized Deployment:** Easily deployable using Docker containers.
 
-## Tech Stack
+## Installation
 
-- **Framework**: Next.js 15 with App Router
-- **Styling**: Tailwind CSS with custom medical theme
-- **Icons**: Lucide React
-- **Authentication**: Google OAuth via backend API
-- **File Upload**: Drag-and-drop with validation
+### Prerequisites
 
-## Getting Started
+Before you begin, ensure you have the following installed:
 
-1. **Install Dependencies**:
-   ```bash
-   npm install
-   ```
+- [Node.js](https://nodejs.org/en/download/) (LTS version recommended)
+- [npm](https://www.npmjs.com/get-npm) (comes with Node.js)
+- [Docker](https://www.docker.com/get-started) (for containerized deployment)
 
-2. **Environment Setup**:
-   Create `.env.local` file:
-   ```
-   NEXT_PUBLIC_API_URL=http://localhost:8000
-   ```
+### Local Development Setup
 
-3. **Run Development Server**:
-   ```bash
-   npm run dev
-   ```
+1.  **Clone the repository:**
+    ```bash
+    git clone https://github.com/anamul94/DietGeniusAI.git
+    cd DietGeniusAI/dietapp-frontend
+    ```
 
-4. **Build for Production**:
-   ```bash
-   npm run build
-   npm start
-   ```
+2.  **Install dependencies:**
+    ```bash
+    npm install
+    ```
 
-## User Flow
+3.  **Create environment file:**
+    Copy the example environment file and update it with your backend API URL. By default, it points to `http://localhost:8000`.
+    ```bash
+    cp .env.example .env
+    ```
+    Open `.env` and modify `NEXT_PUBLIC_API_URL` if your backend is hosted elsewhere.
 
-1. **Login**: Google OAuth authentication
-2. **Profile Setup**: Complete personal information
-3. **Medical Upload**: Optional medical report upload (max 4 files)
-4. **Health Assessment**: AI-powered Q&A session (4 rounds)
-5. **Dashboard**: Access to personalized nutrition features
+4.  **Run the development server:**
+    ```bash
+    npm run dev
+    ```
+    The application will be accessible at `http://localhost:3000`.
 
-## API Integration
+### Docker Deployment
 
-The frontend integrates with the DietGeniusAI backend API:
+This project includes a `Dockerfile` and a `Makefile` for easy Docker integration.
 
-- `/api/auth/google-login` - Google OAuth initiation
-- `/api/auth/google/callback` - OAuth callback handling
-- `/api/users/me` - User profile management
-- `/api/users/profile` - Profile updates
-- `/api/medical-reports/medical` - Medical file upload
-- `/api/medical-reports/onboarding-qa` - AI Q&A session
+1.  **Ensure your `.env` file is configured** as described in the local setup section.
 
-## Design System
+2.  **Build the Docker image:**
+    This command builds the Docker image, passing the `NEXT_PUBLIC_API_URL` from your `.env` file as a build argument.
+    ```bash
+    make build
+    ```
+    *Note: If you change `NEXT_PUBLIC_API_URL` in `.env` after building, you'll need to rebuild the image.* 
 
-### Colors
-- **Primary Green**: #22c55e (health/nutrition theme)
-- **Secondary Blue**: #3b82f6 (trust/medical theme)
-- **Accent Orange**: #f97316 (energy/vitality)
-- **Neutral Gray**: #6b7280 (text/backgrounds)
+3.  **Run the Docker container:**
+    This command runs the application in a Docker container, mapping port 3000 and injecting environment variables from your `.env` file.
+    ```bash
+    make run
+    ```
+    The application will be accessible at `http://localhost:3000`.
 
-### Components
-- Reusable UI components in `/src/components/ui/`
-- Feature-specific components in `/src/components/`
-- Responsive design with mobile-first approach
+4.  **Stop the container:**
+    ```bash
+    make stop
+    ```
 
-## File Structure
+5.  **Clean up (remove Docker image):**
+    ```bash
+    make clean
+    ```
 
-```
-src/
-├── app/                    # Next.js App Router pages
-│   ├── auth/callback/      # OAuth callback handler
-│   ├── onboarding/         # User onboarding flow
-│   ├── dashboard/          # Main dashboard
-│   └── page.tsx           # Home/login page
-├── components/
-│   ├── ui/                # Reusable UI components
-│   ├── auth/              # Authentication components
-│   └── onboarding/        # Onboarding flow components
-└── lib/
-    └── utils.ts           # Utility functions and API helpers
-```
+## Usage
 
-## Responsive Design
+Once the application is running, navigate to `http://localhost:3000` in your web browser. You can:
 
-- **Mobile**: Optimized for touch interactions
-- **Tablet**: Balanced layout with improved spacing
-- **Desktop**: Full-featured layout with sidebar navigation
+- **Sign In/Sign Up:** Access the authentication pages.
+- **Onboarding:** Complete the initial profile setup.
+- **View Reports:** See your uploaded medical reports, dynamically rendered.
+- **Get Insights:** Generate AI-powered health insights based on your data.
 
-## Security Features
+## API Endpoints
 
-- JWT token storage in localStorage
-- API request authentication
-- File upload validation and size limits
-- Secure OAuth flow handling
+The frontend interacts with the following backend API endpoints:
+
+- `/api/medical-reports/medical`: For fetching medical reports (GET, with pagination).
+- `/api/medical-reports/memory-test`: For generating medical insights (POST).
+
+Ensure your backend service is running and accessible at the `NEXT_PUBLIC_API_URL` configured in your `.env` file.
+
+## Contributing
+
+Contributions are welcome! Please feel free to open issues or submit pull requests.
+
+## License
+
+This project is licensed under the MIT License.

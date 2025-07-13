@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card'
@@ -34,6 +34,33 @@ export default function ProfileForm({ onComplete }: ProfileFormProps) {
   })
   const [loading, setLoading] = useState(false)
   const [errors, setErrors] = useState<Partial<ProfileData>>({})
+
+  useEffect(() => {
+    const fetchProfile = async () => {
+      setLoading(true)
+      try {
+        const data = await apiCall('/api/users/me')
+        setFormData(prev => ({
+          ...prev,
+          gender: data.gender || '',
+          dob: data.dob || '',
+          phone: data.phone || '',
+          address: data.address || '',
+          city: data.city || '',
+          country: data.country || '',
+          postal_code: data.postal_code || '',
+          profession: data.profession || '',
+        }))
+      } catch (error) {
+        console.error('Failed to fetch user profile:', error)
+        // Optionally, handle error display to the user
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchProfile()
+  }, [])
 
   const handleChange = (field: keyof ProfileData, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }))
