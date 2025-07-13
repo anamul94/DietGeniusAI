@@ -17,7 +17,7 @@ install: ## Install dependencies
 	pip install -r requirements.txt
 
 dev: ## Run development server
-	uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+	uvicorn app.main:app --reload --host localhost --port 8000
 stop-dev: ## Stop development server
 	pkill -f "uvicorn app.main:app"
 

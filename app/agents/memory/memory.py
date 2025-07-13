@@ -18,9 +18,9 @@ def get_memory_with_manager(memory_model:Optional[Model] = None,
     memory_table = os.getenv("USER_MEMORY_TABLE", "user_memory")
     
     memory_db = PostgresMemoryDb(
-        table_name="usermem",
-        schema="public",
-        db_url="postgresql://postgres:1234@localhost:5433/deitgeniusdb"
+        table_name=memory_table,
+        schema=db_config.schema,
+        db_url=db_config.url
     )
     memory_manager =  MemoryManager(
         model=memory_manager_model,

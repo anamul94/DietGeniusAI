@@ -18,8 +18,15 @@ app = FastAPI(
     debug=settings.DEBUG
 )
 
-# Add session middleware for OAuth
-app.add_middleware(SessionMiddleware, secret_key=settings.SECRET_KEY)
+# Improved SessionMiddleware settings for OAuth session reliability
+app.add_middleware(
+    SessionMiddleware,
+    secret_key=settings.SECRET_KEY,
+    session_cookie="session",
+    same_site="lax",
+    https_only=False # Set to True in production with HTTPS
+)
+logger.info(f"Session secret key: {settings.SECRET_KEY}")
 
 # Set CORS
 app.add_middleware(
@@ -27,7 +34,7 @@ app.add_middleware(
     allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
-    allow_headers=["*"],
+    allow_headers=["*"]
 )
 
 # Include routers
@@ -53,4 +60,3 @@ def root():
 def health_check():
     logger.info("Health check endpoint accessed")
     return {"status": "healthy"}
-

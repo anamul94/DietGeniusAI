@@ -3,7 +3,7 @@ from typing import List, Optional
 from sqlalchemy.orm import Session
 from app.core.logging import logger
 from app.services.medical_parser import MedicalReportParserService
-from app.services.medical import get_user_medical_reports_paginated, user_onboarding_qa
+from app.services.medical import get_user_medical_reports_paginated, user_onboarding_qa, agent_mem_test
 from app.api.deps import get_current_active_user
 from app.models.user import User
 from app.models.medical import MedicalReport
@@ -134,3 +134,14 @@ async def onoarding_qa(
         logger.error(f"Error in onboarding QA for user {current_user.id}: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail="Failed to process onboarding QA.")
     
+@router.post("/memory-test")
+async def memory_test(
+    message: str,
+    current_user: User = Depends(get_current_active_user),
+    ):
+    try:
+        # Generate next question based on count
+       return await agent_mem_test(message=message, user_id=current_user.id)
+    except Exception as e:
+        logger.error(f"Error in onboarding QA for user {current_user.id}: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to process onboarding QA.")

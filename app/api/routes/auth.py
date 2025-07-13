@@ -102,15 +102,42 @@ async def google_login(request: Request, _: None = Depends(rate_limit_auth)):
     redirect_uri = settings.GOOGLE_REDIRECT_URI
     return await oauth.google.authorize_redirect(request, redirect_uri)
 
-@router.get('/auth/google/callback')
+@router.get('/google/callback')
 async def auth_google_callback(request: Request, db: Session = Depends(get_db), _: None = Depends(rate_limit_auth)):
     try:
-        token = await oauth.google.authorize_access_token(request)
-        user_info = token.get('userinfo')
-        logger.info(f"Google user info: {user_info}")
+        logger.info(f"Google callback received with params: {dict(request.query_params)}")
         
-        if not user_info:
-            user_info = await oauth.google.parse_id_token(request, token)
+        # Get the authorization code from query params
+        code = request.query_params.get('code')
+        if not code:
+            raise HTTPException(status_code=400, detail="Authorization code not found")
+        
+        # Exchange code for token manually to avoid state issues
+        import httpx
+        token_data = {
+            'client_id': settings.GOOGLE_CLIENT_ID,
+            'client_secret': settings.GOOGLE_CLIENT_SECRET,
+            'code': code,
+            'grant_type': 'authorization_code',
+            'redirect_uri': settings.GOOGLE_REDIRECT_URI
+        }
+        
+        async with httpx.AsyncClient() as client:
+            token_response = await client.post('https://oauth2.googleapis.com/token', data=token_data)
+            token = token_response.json()
+        
+        if 'access_token' not in token:
+            raise HTTPException(status_code=400, detail="Failed to get access token")
+        
+        # Get user info using access token
+        async with httpx.AsyncClient() as client:
+            user_response = await client.get(
+                'https://www.googleapis.com/oauth2/v2/userinfo',
+                headers={'Authorization': f'Bearer {token["access_token"]}'}
+            )
+            user_info = user_response.json()
+        
+        logger.info(f"User info: {user_info}")
         
         email = user_info.get('email')
         name = user_info.get('name', '')
@@ -153,7 +180,7 @@ async def auth_google_callback(request: Request, db: Session = Depends(get_db), 
         
     except OAuthError as e:
         logger.error(f"OAuth error: {str(e)}")
-        raise HTTPException(status_code=400, detail="Authentication failed")
+        raise HTTPException(status_code=400, detail=f"OAuth error: {str(e)}")
     except Exception as e:
-        logger.error(f"Google auth error: {str(e)}")
-        raise HTTPException(status_code=500, detail="Authentication failed")
+        logger.error(f"Google auth error: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Authentication failed: {str(e)}")

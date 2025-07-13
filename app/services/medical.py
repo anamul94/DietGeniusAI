@@ -6,7 +6,7 @@ from app.core.logging import logger
 from app.models.medical import MedicalReport
 from sqlalchemy import desc
 from app.core.pagination import BasePaginator, PaginationResult
-from app.agents.agetns import user_onboarding_agent
+from app.agents.agetns import user_onboarding_agent, get_memory_test_agent
 from fastapi import Depends
 from app.schemas.qa import QaAns, QA
 import json
@@ -109,3 +109,10 @@ async def user_onboarding_qa(
     except Exception as e:
         logger.error(f"Error processing onboarding QA for user {user_id}: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail="Failed to process onboarding QA. Please try again later.")
+    
+    
+async def agent_mem_test(message: str, user_id: str, ):
+        agent = get_memory_test_agent()
+        response = agent.run(message=message, user_id=str(user_id))
+        logger.info(f"Agent response for user {user_id}: {response}")
+        return response.content 

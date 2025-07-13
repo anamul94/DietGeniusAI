@@ -26,6 +26,7 @@ def user_onboarding_agent():
     memory = get_memory_with_manager(
         memory_model=bedrock_model.aws_model(id=bedrock.NOVA_PRO),
         memory_manager_model=bedrock_model.aws_model(id=bedrock.NOVA_PRO),
+        additional_instructions=prompts.MEMORY_CAPTURE_INSTRUCTIONS,
     )
     print(f""" Memory Info: {memory}""")
     return Agent(
@@ -68,3 +69,15 @@ def user_onboarding_agent():
     memory=memory,
     enable_user_memories=True,
 )
+    
+def get_memory_test_agent():
+      memory = get_memory_with_manager(
+      memory_model=bedrock_model.aws_model(id=bedrock.NOVA_PRO),
+      memory_manager_model=bedrock_model.aws_model(id=bedrock.NOVA_PRO),
+      additional_instructions=prompts.MEMORY_CAPTURE_INSTRUCTIONS
+  )
+      return Agent(
+      model=bedrock_model.aws_model(id=bedrock.NOVA_PRO),
+      memory=memory,
+      enable_user_memories=True 
+    )
