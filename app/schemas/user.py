@@ -1,8 +1,9 @@
-from pydantic import BaseModel, EmailStr, field_validator, Field
+from pydantic import BaseModel, EmailStr, field_validator, Field, computed_field
 from typing import Optional
 from datetime import datetime, date
 import re
 from app.models.user import UserRole
+from app.utils.age_calculator import calculate_age
 
 class UserBase(BaseModel):
     email: EmailStr
@@ -69,7 +70,10 @@ class UserInDBBase(UserBase):
     model_config = {"from_attributes": True}
 
 class User(UserInDBBase):
-    pass
+    @computed_field
+    @property
+    def age(self) -> Optional[int]:
+        return calculate_age(self.dob)
 
 class UserInDB(UserInDBBase):
     hashed_password: str

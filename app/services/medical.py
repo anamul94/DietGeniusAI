@@ -4,11 +4,13 @@ from sqlalchemy.exc import SQLAlchemyError
 from typing import Optional
 from app.core.logging import logger
 from app.models.medical import MedicalReport
+from app.models.user import User
 from sqlalchemy import desc
 from app.core.pagination import BasePaginator, PaginationResult
 from app.agents.agetns import user_onboarding_agent, get_memory_test_agent
 from fastapi import Depends
 from app.schemas.qa import QaAns, QA
+from app.utils.age_calculator import calculate_age
 import json
 
 class MedicalReportPaginator(BasePaginator):
@@ -58,6 +60,11 @@ async def user_onboarding_qa(
         user_message = ""
         
         if ans.count == 0:
+            # Fetch user info
+            user = db.query(User).filter(User.id == user_id).first()
+            if not user:
+                raise HTTPException(status_code=404, detail="User not found")
+            
             # Fetch 2 reports for the user
             medical_reports = get_user_medical_reports_paginated(
                 db=db,
@@ -69,15 +76,20 @@ async def user_onboarding_qa(
             if medical_reports is None:
                 raise HTTPException(status_code=500, detail="Failed to fetch medical reports.")
             
-            # Create data structure
+            # Create data structure with user info
             data_dict = {
                 "reports": [{
                     "id": str(report.id),
                     "medical_report": report.medical_report,
                     "uploaded_at": str(report.created_at)
                 } for report in medical_reports.items],
-                "userinfo": ans.answer,
-                "qa_round":ans.count+1
+                "user_profile": {
+                    "gender": user.gender,
+                    "age": calculate_age(user.dob),
+                    "profession": user.profession
+                },
+                "user_response": ans.answer,
+                "qa_round": ans.count+1
             }
             
             # Convert to string
