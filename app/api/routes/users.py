@@ -5,6 +5,7 @@ from typing import List
 from app.api.deps import get_db, get_current_user, get_current_admin_user
 from app.models.user import User, UserRole
 from app.schemas.user import User as UserSchema, UserCreate, UserUpdate
+from app.schemas.profile import ProfileUpdate
 from app.services.user import create_user, get_user_by_email, get_user_by_username, get_user, update_user, get_users, UserServiceError
 from app.core.logging import logger
 
@@ -147,4 +148,42 @@ def read_all_users(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Error retrieving users",
+        )
+
+@router.put("/profile", response_model=UserSchema)
+def update_user_profile(
+    profile_in: ProfileUpdate,
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Update user profile information
+    """
+    try:
+        # Convert ProfileUpdate to UserUpdate
+        user_update = UserUpdate(**profile_in.dict(exclude_unset=True))
+        
+        user = update_user(db, current_user, user_update)
+        logger.info(
+            f"User updated profile",
+            extra={
+                "user_id": user.id,
+                "username": user.username,
+                "client_ip": request.client.host if request.client else None,
+                "fields_updated": list(profile_in.dict(exclude_unset=True).keys()),
+            }
+        )
+        return user
+    except UserServiceError as e:
+        logger.error(f"Error updating profile: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Error updating profile",
+        )
+    except Exception as e:
+        logger.error(f"Unexpected error updating profile: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="An unexpected error occurred",
         )

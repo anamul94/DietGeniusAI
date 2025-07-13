@@ -1,6 +1,6 @@
 from pydantic import BaseModel, EmailStr, field_validator, Field
 from typing import Optional
-from datetime import datetime
+from datetime import datetime, date
 import re
 from app.models.user import UserRole
 
@@ -8,6 +8,15 @@ class UserBase(BaseModel):
     email: EmailStr
     username: str = Field(..., min_length=3, max_length=50, pattern=r"^[a-zA-Z0-9 _-]+$")
     avatar: Optional[str] = None
+    gender: Optional[str] = None
+    dob: Optional[date] = None
+    phone: Optional[str] = None
+    address: Optional[str] = None
+    city: Optional[str] = None
+    country: Optional[str] = None
+    postal_code: Optional[str] = None
+    timezone: Optional[str] = None
+    profession: Optional[str] = None
 
 class UserCreate(UserBase):
     password: str = Field(..., min_length=8)
@@ -39,6 +48,16 @@ class UserUpdate(BaseModel):
     username: Optional[str] = None
     password: Optional[str] = None
     role: Optional[UserRole] = None
+    avatar: Optional[str] = None
+    gender: Optional[str] = None
+    dob: Optional[date] = None
+    phone: Optional[str] = None
+    address: Optional[str] = None
+    city: Optional[str] = None
+    country: Optional[str] = None
+    postal_code: Optional[str] = None
+    timezone: Optional[str] = None
+    profession: Optional[str] = None
 
 class UserInDBBase(UserBase):
     id: int

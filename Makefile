@@ -87,22 +87,22 @@ migrate: ## Run database migrations
 	docker-compose exec app alembic upgrade head
 
 migrate-local: ## Run database migrations locally
-	alembic upgrade head
+	.venv/bin/alembic upgrade head
 
 migration: ## Create new migration (usage: make migration msg="your message")
-	alembic revision --autogenerate -m "$(msg)"
+	.venv/bin/alembic revision --autogenerate -m "$(msg)"
 
 migration-manual: ## Create empty migration file (usage: make migration-manual msg="your message")
-	alembic revision -m "$(msg)"
+	.venv/bin/alembic revision -m "$(msg)"
 
 downgrade: ## Downgrade database by one revision
-	alembic downgrade -1
+	.venv/bin/alembic downgrade -1
 
 db-history: ## Show migration history
-	alembic history
+	.venv/bin/alembic history
 
 db-current: ## Show current migration
-	alembic current
+	.venv/bin/alembic current
 
 init-db: ## Initialize database
 	python init_db.py
