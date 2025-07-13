@@ -5,10 +5,15 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { apiCall, formatDate } from '@/lib/utils'
 import { FileText, ChevronLeft, ChevronRight } from 'lucide-react'
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
 
 interface MedicalReport {
   id: string
-  medical_report: any
+  medical_report: {
+    filename: string
+    report: string
+  }[]
   uploaded_at: string
 }
 
@@ -35,30 +40,24 @@ export default function ReportsPage() {
     fetchReports(page)
   }, [page])
 
-  const renderReportData = (reportData: any) => {
-    if (!reportData || !Array.isArray(reportData)) return null
-    
-    return reportData.map((report, idx) => {
-      const [filename, data] = report
+  const renderReportData = (reportData: MedicalReport['medical_report']) => {
+    if (!reportData || reportData.length === 0) {
+      return <p className="text-gray-500">No report data available.</p>
+    }
+
+    return reportData.map((reportItem, idx) => {
+      const filename = reportItem.filename
+      const markdownContent = reportItem.report.replace(/^```markdown\n|\n```$/g, '')
+
       return (
-        <div key={idx} className="border rounded-lg p-4 mb-4">
-          <h4 className="font-medium text-gray-900 mb-2">{filename}</h4>
-          {data['Patient Demographics'] && (
-            <div className="mb-3">
-              <h5 className="font-medium text-sm text-gray-700">Patient Info:</h5>
-              <p className="text-sm">{data['Patient Demographics']['Full Name']}, Age {data['Patient Demographics']['Age']}</p>
-            </div>
-          )}
-          {data['Vital Signs & Lab Results']?.['Lab Results'] && (
-            <div>
-              <h5 className="font-medium text-sm text-gray-700 mb-2">Lab Results:</h5>
-              <div className="space-y-1">
-                {data['Vital Signs & Lab Results']['Lab Results'].slice(0, 3).map((test: any, i: number) => (
-                  <p key={i} className="text-sm">{test['Test Name']}: {test['Result Value']} ({test['Reference Range']})</p>
-                ))}
-              </div>
-            </div>
-          )}
+        <div key={idx} className="border rounded-lg p-4 mb-4 bg-white shadow-sm">
+          <h4 className="font-semibold text-gray-900 mb-3 flex items-center">
+            <FileText className="w-4 h-4 mr-2 text-blue-500" />
+            {filename}
+          </h4>
+          <div className="prose max-w-none p-2 rounded-md bg-gray-50">
+            <ReactMarkdown remarkPlugins={[remarkGfm]}>{markdownContent}</ReactMarkdown>
+          </div>
         </div>
       )
     })

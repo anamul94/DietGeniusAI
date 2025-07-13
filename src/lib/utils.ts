@@ -8,6 +8,7 @@ export function cn(...inputs: ClassValue[]) {
 export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
 
 export async function apiCall(endpoint: string, options: RequestInit = {}) {
+  const url = endpoint.startsWith('http') ? endpoint : `${API_BASE_URL}${endpoint}`
   const token = localStorage.getItem('access_token')
   
   const config: RequestInit = {
