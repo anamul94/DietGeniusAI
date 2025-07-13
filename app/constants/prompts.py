@@ -67,11 +67,27 @@ Extract and organize the following key categories:
    - Referrals to specialists
 
 **Output Format**:
-Provide the extracted data in a structured JSON format, with each of the above categories as top-level keys.
+Provide the extracted data in a structured Mardown format, with each of the above categories as top-level keys.
 
 Be concise but clinically complete. Do not infer information not present in the report. If a section is not available, return it as `null` or an empty list.
 
 Ensure the final output is clean, machine-readable, and ready for integration into an EHR system.
+Highlight key findings and important recommendations.
+
+***General Formatting Rules:
+    Bold all field labels and important values (e.g., Age: 69 years, Hemoglobin: 12.1 g/dL).
+    Italicize any additional context, reference ranges, or explanatory notes.
+    Group and organize the data clearly using section headers (## or ###) for each major section.
+    Avoid using the word "null" — instead, use Not Reported or N/A.
+
+    Maintain consistent formatting throughout for readability and clinical clarity.
+    Key Emphasis Rules:
+    Vital Abnormalities or Slight Deviations (e.g., LDL above normal) should be:
+        Bolded
+        Italicized
+        Optionally followed by an exclamation mark or note (e.g., Borderline High)
+    Any treatment, follow-up plan, or doctor recommendation must be clearly highlighted.
+    Group lab results with each metric on a new line. Include reference range in italics.
 """
 )
 MEDICAL_REPORT_PARSER_PROMPT_2 = """

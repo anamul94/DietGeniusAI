@@ -11,6 +11,7 @@ from app.constants.bedrock import (
 
 from app.core.logging import logger
 from app.utils.json_parser import extract_json_from_response
+import json
 
 class BedrockService:
     def __init__(self,region_name="ap-south-1"):
@@ -62,13 +63,16 @@ class BedrockService:
                 )
                 response_text = response["output"]["message"]["content"][0]["text"]
                 logger.info(f"Response from Bedrock: {response_text}")
-                extracted_json = extract_json_from_response(response_text) 
-                results.append((filename, extracted_json))
+                # extracted_json = extract_json_from_response(response_text) 
+                results.append(dict(filename=filename, report=response_text))
+                
                 logger.info(f"Successfully processed document: {filename}")
 
             except (ClientError, Exception) as e:
                 logger.error(f"Error processing document {filename}: {str(e)}")
                 results.append((filename, f"ERROR: {str(e)}"))
+                
+          
 
         return results
     
@@ -122,8 +126,8 @@ class BedrockService:
                 )
                 response_text = response["output"]["message"]["content"][0]["text"]
                 logger.info(f"Response from Bedrock: {response_text}")
-                extracted_json = extract_json_from_response(response_text)
-                results.append((filename, extracted_json))
+                # extracted_json = extract_json_from_response(response_text)
+                results.append(dict(filename=filename, report=response_text))
                 logger.info(f"Successfully processed image: {filename}")
 
             except (ClientError, Exception) as e:
