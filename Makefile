@@ -86,6 +86,24 @@ db-shell: ## Access database shell
 migrate: ## Run database migrations
 	docker-compose exec app alembic upgrade head
 
+migrate-local: ## Run database migrations locally
+	alembic upgrade head
+
+migration: ## Create new migration (usage: make migration msg="your message")
+	alembic revision --autogenerate -m "$(msg)"
+
+migration-manual: ## Create empty migration file (usage: make migration-manual msg="your message")
+	alembic revision -m "$(msg)"
+
+downgrade: ## Downgrade database by one revision
+	alembic downgrade -1
+
+db-history: ## Show migration history
+	alembic history
+
+db-current: ## Show current migration
+	alembic current
+
 init-db: ## Initialize database
 	python init_db.py
 

@@ -24,8 +24,9 @@ oauth.register(
     client_secret=settings.GOOGLE_CLIENT_SECRET,
     server_metadata_url='https://accounts.google.com/.well-known/openid-configuration',
     client_kwargs={
-        'scope': 'openid email profile'
-    },
+    'scope': 'openid email profile https://www.googleapis.com/auth/user.birthday.read https://www.googleapis.com/auth/user.gender.read'
+}
+
 )
 
 router = APIRouter()
@@ -141,12 +142,13 @@ async def auth_google_callback(request: Request, db: Session = Depends(get_db), 
         
         email = user_info.get('email')
         name = user_info.get('name', '')
+        avatar = user_info.get('picture', '')
         
         if not email:
             raise HTTPException(status_code=400, detail="Email not provided by Google")
         
         # Check if user exists
-        user = get_user_by_email(db, email)
+        user =  get_user_by_email(db, email)
         
         if not user:
             # Create new user
@@ -154,7 +156,8 @@ async def auth_google_callback(request: Request, db: Session = Depends(get_db), 
                 email=email,
                 username=name or email.split('@')[0],
                 password="google_oauth",  # Placeholder password
-                role=UserRole.USER
+                role=UserRole.USER,
+                avatar=avatar
             )
             user = create_user(db, user_create)
         
@@ -174,7 +177,8 @@ async def auth_google_callback(request: Request, db: Session = Depends(get_db), 
                 "id": user.id,
                 "email": user.email,
                 "username": user.username,
-                "role": user.role
+                "role": user.role,
+                "avatar":user.avatar
             }
         }
         
