@@ -16,7 +16,7 @@ async def parse_nutrition(
     serving_size: str,
     user_id: int,
     session_id: str,
-    files: Optional[List[UploadFile]] = File(default=None)):
+    files: Optional[List[UploadFile]] = File(default=None)) -> Optional[FoodNutritionResponse]:
     """
     Parse nutrition data from uploaded files.
 
@@ -56,15 +56,18 @@ async def parse_nutrition(
             # }
             
         
-        message = f"""serving size {serving_size}
-                            """
-        response = await bedrock_service.process_multiple_images(files=image_to_process,
+        
+        data = await bedrock_service.process_multiple_images(files=image_to_process,
                                                            prompt=FOOD_NAME_EXTRACTION_INSTRUCTION)
-        return response
-        # response = nutrition_parser_agent.run(message=message,
-        #                                       images=images,
-        #                                       user_id=user_id,session_id=session_id)
-        logger.info(f"Response from Nutrition Parser agent received {type(response.content)}")
+        food_items = [item["report"] for item in data]
+        message = f"""
+                    Food items: {food_items}  
+                    Serving size: {serving_size}
+                    """
+        response =  nutrition_parser_agent.run(message=message,
+                                              images=images,
+                                              user_id=user_id,session_id=session_id)
+        logger.info(f"Response from Nutrition Parser agent received {type(response)}")
         
         # The agent is returning a list of food items, but our schema expects a single FoodNutrition object
         # Let's convert the response to match our schema
@@ -93,7 +96,7 @@ async def parse_nutrition(
         # except (json.JSONDecodeError, ValidationError) as e:
         #     logger.warning(f"Error formatting nutrition response: {str(e)}")
         #     # Return original content if we can't format it
-        #     return response.content
+        return response.content
                         
        
     except Exception as e:

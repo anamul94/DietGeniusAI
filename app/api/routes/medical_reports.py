@@ -162,7 +162,9 @@ async def generate_session_id(
         logger.error(f"Error generating session ID for user {current_user.id}: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail="Failed to generate session ID. Please try again later.")
     
-@router.post("/food-nutrition", status_code=status.HTTP_200_OK)
+@router.post("/food-nutrition", 
+             status_code=status.HTTP_200_OK,
+             response_model=FoodNutritionResponse)
 async def upload_file(
     files: List[UploadFile] = File(...),
     serving_size: str = Form(description="serving size"),
