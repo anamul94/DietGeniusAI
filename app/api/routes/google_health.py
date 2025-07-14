@@ -54,19 +54,58 @@ async def get_google_health_auth_url(request: Request):
             detail=f"Error generating Google Health auth URL: {str(e)}"
         )
 
+@router.get("/auth/callback",
+    summary="Handle Google Health Authorization Callback (GET)",
+    description="Handles the redirect from Google OAuth. This endpoint receives the authorization code as a query parameter and redirects to the frontend with the code.",
+    response_description="Redirect to frontend with code"
+)
+async def google_health_auth_callback_get(
+    code: str,
+    state: Optional[str] = None,
+    error: Optional[str] = None,
+    request: Request = None,
+    db: Session = Depends(get_db)
+):
+    """
+    Handle Google Health authorization callback via GET request.
+    This endpoint is called by Google OAuth after user authorization.
+    """
+    try:
+        if error:
+            logger.error(f"Google OAuth error: {error}")
+            # Redirect to frontend with error
+            return {"error": error, "message": "Authorization failed"}
+        
+        if not code:
+            logger.error("No authorization code provided")
+            return {"error": "no_code", "message": "No authorization code provided"}
+        
+        # Redirect to frontend with the code
+        # The frontend will then call the POST endpoint with the code
+        frontend_callback_url = f"{settings.FRONTEND_URL}/google-health/callback?code={code}"
+        if state:
+            frontend_callback_url += f"&state={state}"
+        
+        return {"auth_code": code, "redirect_url": frontend_callback_url}
+        
+    except Exception as e:
+        logger.error(f"Unexpected error in Google Health auth callback (GET): {str(e)}")
+        return {"error": "server_error", "message": f"Unexpected error: {str(e)}"}
+
 @router.post("/auth/callback",
     response_model=GoogleHealthToken,
-    summary="Handle Google Health Authorization Callback",
-    description="Exchanges the authorization code for access and refresh tokens. This endpoint should be called after the user has authorized the application.",
+    summary="Handle Google Health Authorization Callback (POST)",
+    description="Exchanges the authorization code for access and refresh tokens. This endpoint should be called by the frontend after receiving the code from the GET callback.",
     response_description="Google Health token information"
 )
-async def google_health_auth_callback(
+async def google_health_auth_callback_post(
     auth_request: GoogleHealthAuthRequest,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
     """
-    Handle Google Health authorization callback.
+    Handle Google Health authorization callback via POST request.
+    This endpoint is called by the frontend after receiving the code.
     """
     try:
         # Exchange code for token
@@ -85,7 +124,7 @@ async def google_health_auth_callback(
             detail=f"Google Health auth error: {str(e)}"
         )
     except Exception as e:
-        logger.error(f"Unexpected error in Google Health auth callback: {str(e)}")
+        logger.error(f"Unexpected error in Google Health auth callback (POST): {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Unexpected error: {str(e)}"

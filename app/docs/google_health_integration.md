@@ -77,6 +77,21 @@ Returns the Google Health authorization URL that the user should be redirected t
 
 #### Handle Authorization Callback
 
+The authorization callback flow works in two steps:
+
+1. Google redirects to your callback URL with the authorization code (GET endpoint)
+2. Your frontend captures the code and sends it to the backend (POST endpoint)
+
+##### GET Callback (from Google OAuth)
+
+```
+GET /api/google-health/auth/callback?code=authorization_code_from_google
+```
+
+This endpoint is called by Google OAuth after user authorization. It returns the authorization code and a frontend redirect URL.
+
+##### POST Callback (from Frontend)
+
 ```
 POST /api/google-health/auth/callback
 ```
@@ -89,7 +104,7 @@ Body:
 }
 ```
 
-Exchanges the authorization code for access and refresh tokens.
+This endpoint is called by your frontend after receiving the code from the GET callback. It exchanges the authorization code for access and refresh tokens.
 
 ### Data Management
 
