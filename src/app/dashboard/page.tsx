@@ -6,6 +6,10 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { apiCall } from '@/lib/utils'
 import { User, FileText, Activity, Settings, LogOut } from 'lucide-react'
+import GoogleHealthLogin from '@/components/auth/GoogleHealthLogin'
+import GoogleHealthDataFetcher from '@/components/google-health/GoogleHealthDataFetcher'
+import GoogleHealthStatusAndRevoke from '@/components/google-health/GoogleHealthStatusAndRevoke'
+
 
 interface UserProfile {
   email: string
@@ -167,6 +171,27 @@ export default function DashboardPage() {
               <Button variant="outline" size="sm" className="w-full" onClick={() => router.push('/insights')}>
                 <Activity className="w-4 h-4" />
                 View Insights
+              </Button>
+              <GoogleHealthLogin />
+              <GoogleHealthDataFetcher />
+              <GoogleHealthStatusAndRevoke />
+            </CardContent>
+          </Card>
+
+          {/* Food Nutrition Card */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <FileText className="w-5 h-5 text-green-500" />
+                Food Nutrition Analysis
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-gray-600 mb-4">
+                Analyze your food intake for detailed nutritional insights.
+              </p>
+              <Button variant="outline" size="sm" className="w-full" onClick={() => router.push('/food-nutrition-analysis')}>
+                Analyze Food Nutrition
               </Button>
             </CardContent>
           </Card>
