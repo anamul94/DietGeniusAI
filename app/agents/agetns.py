@@ -1,17 +1,19 @@
 import base64
 import os
+from textwrap import dedent
+
 
 from agno.agent import Agent
 from app.agents.models.model_provider import ModelProvider
 from app.constants import bedrock, prompts
 from app.agents.memory.memory import get_memory_with_manager
+from app.schemas.agnent_qa import AgentQA
 
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 from opentelemetry import trace
 
-from textwrap import dedent
 
 # instrument_agno()
 LANGFUSE_AUTH = base64.b64encode(
@@ -35,7 +37,7 @@ def user_onboarding_agent():
     return Agent(
     name="Clinical Dietitian",
     description="Clinical dietitian conducting patient assessment for personalized diet planning.",
-    model=bedrock_model.aws_model(id=bedrock.NOVA_PRO),
+    model=bedrock_model.aws_model(id=bedrock.ANTHROPIC_HAIKU_3),
     instructions=dedent("""\
         You are a clinical dietitian conducting patient assessment for diet planning.
         
@@ -68,6 +70,8 @@ def user_onboarding_agent():
         • Thank patient for their cooperation in the assessment
         
         Maintain professional clinical tone throughout.
+        
+        *** When you are done with the assessment, set is_done to True. ***
     """),
     system_message=dedent("""\
         You are a clinical dietitian conducting patient assessments.
@@ -90,6 +94,11 @@ def user_onboarding_agent():
     enable_user_memories=True,
     add_datetime_to_instructions=True,
     markdown=True,
+    # structured_outputs=True,
+    response_model=AgentQA,
+    enable_agentic_memory=True,
+    goal="Patient Assessment",
+    
 )
     
 def get_memory_test_agent():

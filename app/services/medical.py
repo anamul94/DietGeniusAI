@@ -111,24 +111,32 @@ async def user_onboarding_qa(
         
         # Process the user message
         response =  agent.run(message=user_message, user_id=str(user_id), session_id=str(user_id))
-        # logger.info(f"Agent response for user {user_id}: {response}")
+        qa_res = response.content
+        logger.info(f"Agent response for user {user_id}: {response}")
         
         # Update onboarding status if completed (after 4 rounds)
-        if ans.count >= 3:
+        if qa_res.is_done:
             user = db.query(User).filter(User.id == user_id).first()
             if user:
                 user.onboarding_status = "completed"
                 db.add(user)
                 db.commit()
+        # if ans.count >= 3:
+        #     user = db.query(User).filter(User.id == user_id).first()
+        #     if user:
+        #         user.onboarding_status = "completed"
+        #         db.add(user)
+        #         db.commit()
         
         chat_hist = {
-            "question": response.content
+            "question": qa_res.question,
         }
         prev_hist = ans.chat_history if ans.chat_history else []
         prev_hist.append(chat_hist)
             
         return QA(
-            question=response.content,
+            question=qa_res.question,
+            is_done=qa_res.is_done,
             count=ans.count+1,
             chat_history=prev_hist
         )

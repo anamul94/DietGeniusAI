@@ -13,6 +13,8 @@ from app.core.logging import logger
 from app.utils.json_parser import extract_json_from_response
 import json
 
+
+
 class BedrockService:
     def __init__(self,region_name="ap-south-1"):
         self.client = boto3.client("bedrock-runtime", region_name=region_name)
