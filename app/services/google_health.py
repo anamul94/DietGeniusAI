@@ -47,8 +47,19 @@ async def exchange_code_for_token(
             "redirect_uri": redirect_uri
         }
         
+        # Log request details for debugging
+        logger.info(f"Token exchange request - Code: {code[:10]}... (truncated)")
+        logger.info(f"Token exchange request - Redirect URI: {redirect_uri}")
+        logger.info(f"Token exchange request - Client ID: {settings.GOOGLE_HEALTH_CLIENT_ID[:10]}... (truncated)")
+        
         # Make token request
         response = requests.post(token_url, data=payload)
+        
+        # Log response for debugging
+        if response.status_code != 200:
+            logger.error(f"Token exchange failed with status {response.status_code}")
+            logger.error(f"Response content: {response.text}")
+        
         response.raise_for_status()
         token_data = response.json()
         

@@ -45,7 +45,7 @@ class GoogleHealthDataList(BaseModel):
 
 class GoogleHealthAuthRequest(BaseModel):
     code: str
-    redirect_uri: str
+    redirect_uri: Optional[str] = None
 
 class GoogleHealthAuthResponse(BaseModel):
     access_token: str

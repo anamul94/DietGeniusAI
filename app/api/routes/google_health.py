@@ -70,23 +70,40 @@ async def google_health_auth_callback_get(
     Handle Google Health authorization callback via GET request.
     This endpoint is called by Google OAuth after user authorization.
     """
+    from fastapi.responses import RedirectResponse
+    
     try:
+        # Log the full request URL and details
+        logger.info(f"Google OAuth callback received - Full URL: {request.url}")
+        logger.info(f"Google OAuth callback - Code: {code[:10]}... (truncated)")
+        logger.info(f"Google OAuth callback - State: {state}")
+        logger.info(f"Google OAuth callback - Configured redirect URI: {settings.GOOGLE_HEALTH_REDIRECT_URI}")
+        
         if error:
             logger.error(f"Google OAuth error: {error}")
             # Redirect to frontend with error
-            return {"error": error, "message": "Authorization failed"}
+            error_url = f"{settings.FRONTEND_URL}/google-health/callback?error={error}"
+            return RedirectResponse(url=error_url)
         
         if not code:
             logger.error("No authorization code provided")
-            return {"error": "no_code", "message": "No authorization code provided"}
+            error_url = f"{settings.FRONTEND_URL}/google-health/callback?error=no_code"
+            return RedirectResponse(url=error_url)
         
-        # Redirect to frontend with the code
-        # The frontend will then call the POST endpoint with the code
+        # Store the code in a temporary session or cache with a short expiration
+        # This is a critical step to prevent the "invalid_grant" error
+        # In a real implementation, you would use Redis or a similar cache
+        # For now, we'll just log a warning
+        logger.warning("IMPORTANT: Authorization codes are one-time use only. If you're testing repeatedly, you need to start the OAuth flow from the beginning each time.")
+        
+        # Build the frontend callback URL with the code
         frontend_callback_url = f"{settings.FRONTEND_URL}/google-health/callback?code={code}"
         if state:
             frontend_callback_url += f"&state={state}"
         
-        return {"auth_code": code, "redirect_url": frontend_callback_url}
+        # Perform an actual HTTP redirect to the frontend
+        logger.info(f"Redirecting to frontend: {frontend_callback_url}")
+        return RedirectResponse(url=frontend_callback_url)
         
     except Exception as e:
         logger.error(f"Unexpected error in Google Health auth callback (GET): {str(e)}")
@@ -108,12 +125,21 @@ async def google_health_auth_callback_post(
     This endpoint is called by the frontend after receiving the code.
     """
     try:
+        # Log received data for debugging
+        logger.info(f"Received auth request - Code: {auth_request.code[:10]}... (truncated)")
+        logger.info(f"Received auth request - Redirect URI: {auth_request.redirect_uri}")
+        
+        # IMPORTANT: Use the same redirect URI that was used in the authorization request
+        # This should match the one registered in Google Cloud Console
+        redirect_uri = settings.GOOGLE_HEALTH_REDIRECT_URI
+        logger.info(f"Using redirect URI from settings: {redirect_uri}")
+        
         # Exchange code for token
         token = await exchange_code_for_token(
             db=db,
             user_id=current_user.id,
             code=auth_request.code,
-            redirect_uri=auth_request.redirect_uri
+            redirect_uri=redirect_uri  # Use the URI from settings instead of the request
         )
         
         return token

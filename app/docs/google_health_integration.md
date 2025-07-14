@@ -88,7 +88,7 @@ The authorization callback flow works in two steps:
 GET /api/google-health/auth/callback?code=authorization_code_from_google
 ```
 
-This endpoint is called by Google OAuth after user authorization. It returns the authorization code and a frontend redirect URL.
+This endpoint is called by Google OAuth after user authorization. It automatically redirects the user's browser to your frontend application with the authorization code as a query parameter.
 
 ##### POST Callback (from Frontend)
 
@@ -104,7 +104,75 @@ Body:
 }
 ```
 
+**IMPORTANT**: The `redirect_uri` must exactly match the one registered in Google Cloud Console and used in the initial authorization request. The backend will use the URI from settings rather than the one provided in the request for security reasons.
+
 This endpoint is called by your frontend after receiving the code from the GET callback. It exchanges the authorization code for access and refresh tokens.
+
+##### Frontend Implementation Example
+
+```javascript
+// Example frontend code for handling the callback
+async function handleGoogleHealthCallback() {
+  // Get the code from URL query parameters
+  const urlParams = new URLSearchParams(window.location.search);
+  const code = urlParams.get('code');
+  
+  if (!code) {
+    console.error('No authorization code found');
+    return;
+  }
+  
+  try {
+    // Call your backend API to exchange the code for tokens
+    const response = await fetch('/api/google-health/auth/callback', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer YOUR_USER_ACCESS_TOKEN' // Include user authentication
+      },
+      body: JSON.stringify({
+        code: code,
+        redirect_uri: 'http://localhost:8000/api/google-health/auth/callback' // Must match the one in your settings
+      })
+    });
+    
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(`Failed to exchange code: ${errorData.detail || 'Unknown error'}`);
+    }
+    
+    const tokenData = await response.json();
+    console.log('Successfully connected Google Health account');
+    
+    // Redirect to a success page or dashboard
+    window.location.href = '/dashboard?google_health_connected=true';
+    
+  } catch (error) {
+    console.error('Error exchanging code for token:', error);
+    // Handle error (show error message to user)
+  }
+}
+
+// Call this function when the page loads
+document.addEventListener('DOMContentLoaded', handleGoogleHealthCallback);
+```
+
+##### Testing with curl
+
+You can test the POST endpoint with curl:
+
+```bash
+curl -X 'POST' \
+  'http://localhost:8000/api/google-health/auth/callback' \
+  -H 'accept: application/json' \
+  -H 'Content-Type: application/json' \
+  -H 'Authorization: Bearer YOUR_ACCESS_TOKEN' \
+  -d '{
+  "code": "YOUR_AUTHORIZATION_CODE"
+}'
+```
+
+Note that you don't need to include the `redirect_uri` in the request anymore, as the backend will use the one from settings.
 
 ### Data Management
 
@@ -177,6 +245,29 @@ Access tokens are automatically refreshed when they expire or are about to expir
 3. **Token Refresh Error**: If token refresh fails, the user may need to re-authorize the application.
 
 4. **Data Not Syncing**: Check the cron job logs at `/var/log/google_health_sync.log` for errors.
+
+5. **"invalid_grant" Error**: This error occurs when:
+   - The authorization code has already been used (they're one-time use only)
+   - The authorization code has expired (they typically expire after 10 minutes)
+   - The redirect URI in the token request doesn't match the one used in the authorization request
+
+   **Solution**: Always start the OAuth flow from the beginning when testing. Don't try to reuse authorization codes.
+
+### Testing the OAuth Flow
+
+When testing the OAuth flow, keep these important points in mind:
+
+1. **Authorization codes are one-time use only**: Once you use a code to get tokens, you cannot use it again. If you get an "invalid_grant" error, you need to start the OAuth flow from the beginning.
+
+2. **Authorization codes expire quickly**: Codes typically expire after 10 minutes. If you wait too long to exchange the code for tokens, you'll get an "invalid_grant" error.
+
+3. **Redirect URIs must match exactly**: The redirect URI used in the token exchange request must exactly match the one used in the authorization request and the one registered in the Google Cloud Console.
+
+4. **Testing workflow**:
+   - Start by visiting the auth URL endpoint to get a fresh authorization URL
+   - Complete the Google OAuth consent flow
+   - Let the system redirect you to your frontend
+   - Have your frontend immediately exchange the code for tokens
 
 ### Logging
 
