@@ -24,7 +24,9 @@ export default function OnboardingChat({ onComplete }: OnboardingChatProps) {
   const [loading, setLoading] = useState(false)
   const [count, setCount] = useState(0)
   const [isComplete, setIsComplete] = useState(false)
+  const [showInitialLoadingMessage, setShowInitialLoadingMessage] = useState(true)
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const initialized = useRef(false)
 
   // Voice recording states
   const [isRecording, setIsRecording] = useState(false)
@@ -44,11 +46,15 @@ export default function OnboardingChat({ onComplete }: OnboardingChatProps) {
 
   useEffect(() => {
     // Initialize first question
-    initializeChat()
+    if (!initialized.current) {
+      initialized.current = true
+      initializeChat()
+    }
   }, [])
 
   const initializeChat = async () => {
     setLoading(true)
+    setShowInitialLoadingMessage(true)
     try {
       const response = await apiCall('/api/medical-reports/onboarding-qa', {
         method: 'POST',
@@ -65,6 +71,7 @@ export default function OnboardingChat({ onComplete }: OnboardingChatProps) {
       console.error('Failed to initialize chat:', error)
     } finally {
       setLoading(false)
+      setShowInitialLoadingMessage(false)
     }
   }
 
@@ -190,7 +197,7 @@ export default function OnboardingChat({ onComplete }: OnboardingChatProps) {
         })
       })
 
-      if (response.count >= 4) {
+      if (response.is_done === true) {
         setIsComplete(true)
         setCurrentQuestion(response.question || 'Thank you for completing the onboarding process!')
       } else {
@@ -231,29 +238,23 @@ export default function OnboardingChat({ onComplete }: OnboardingChatProps) {
         <Card className="h-[600px] flex flex-col">
           <CardContent className="flex-1 flex flex-col p-0">
             <div className="flex-1 overflow-y-auto p-6 space-y-4">
-              {messages.map((message, index) => (
-                <div key={index} className="space-y-4">
-                  <div className="flex items-start gap-3">
-                    <div className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center">
-                      <Bot className="w-4 h-4 text-white" />
-                    </div>
-                    <div className="flex-1 bg-green-50 rounded-lg p-4 prose max-w-none">
-                      <ReactMarkdown remarkPlugins={[remarkGfm]}>{message.question}</ReactMarkdown>
-                    </div>
-                  </div>
-                  
-                  <div className="flex items-start gap-3 justify-end">
-                    <div className="flex-1 max-w-md bg-blue-500 text-white rounded-lg p-4">
-                      <p>{message.answer}</p>
-                    </div>
-                    <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
-                      <User className="w-4 h-4 text-white" />
-                    </div>
+              
+
+              {showInitialLoadingMessage && loading && (
+                <div className="flex items-center justify-center h-full">
+                  <div className="text-center">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-500 mx-auto mb-4"></div>
+                    <p className="text-lg font-semibold text-gray-700">
+                      Please wait while an AI Dietitian is assigned to you.
+                    </p>
+                    <p className="text-gray-500">
+                      They are currently analyzing your data to provide personalized insights.
+                    </p>
                   </div>
                 </div>
-              ))}
+              )}
 
-              {currentQuestion && !isComplete && (
+              {currentQuestion && !isComplete && !showInitialLoadingMessage && (
                 <div className="flex items-start gap-3">
                   <div className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center">
                     <Bot className="w-4 h-4 text-white" />
