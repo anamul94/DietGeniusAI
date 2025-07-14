@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.sessions import SessionMiddleware
-from app.api.routes import users, medical_reports, google_health
+from app.api.routes import users, medical_reports, google_health, meal_entry
 from app.core.config import settings
 from app.db.base import Base, engine
 from app.core.logging import setup_logger
@@ -33,6 +33,10 @@ app = FastAPI(
         {
             "name": "google-health",
             "description": "Google Health API integration for fetching health and fitness data"
+        },
+        {
+            "name": "meal-entries",
+            "description": "Meal entries management for tracking meals and nutritional intake"
         }
     ],
     docs_url="/api/docs",
@@ -64,6 +68,7 @@ app.include_router(auth.router, prefix="/api/auth", tags=["auth"])
 app.include_router(users.router, prefix="/api/users", tags=["users"])
 app.include_router(medical_reports.router, prefix="/api/medical-reports", tags=["medical-reports"])
 app.include_router(google_health.router, prefix="/api/google-health", tags=["google-health"])
+app.include_router(meal_entry.router, prefix="/api/meal-entries", tags=["meal-entries"])
 
 @app.on_event("startup")
 async def startup_event():

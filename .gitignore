@@ -152,3 +152,4 @@ test.db
 uv.lock
 .amazonq/
 alembic/
+uploads/

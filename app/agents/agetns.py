@@ -8,7 +8,7 @@ from app.agents.models.model_provider import ModelProvider
 from app.constants import bedrock, prompts
 from app.agents.memory.memory import get_memory_with_manager
 from app.schemas.agnent_qa import AgentQA
-from app.schemas import nutrition
+from app.schemas.nutrition import FoodNutritionResponse
 from app.agents.memory import storage
 
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
@@ -26,7 +26,7 @@ trace_provider = TracerProvider()
 trace_provider.add_span_processor(SimpleSpanProcessor(OTLPSpanExporter()))
 trace.set_tracer_provider(trace_provider)
 import openlit
-openlit.init(tracer=trace.get_tracer(__name__), disable_batch=True)
+# openlit.init(tracer=trace.get_tracer(__name__), disable_batch=True)
 
 bedrock_model = ModelProvider()
 
@@ -125,7 +125,7 @@ def get_memory_test_agent():
 def nutrition_analysis_agent():
     return Agent(
         name="Nutrition Analysis Agent",
-        model=bedrock_model.aws_model(id=bedrock.ANTHROPIC_HAIKU_3),
+        model=bedrock_model.aws_model(id=bedrock.ANTHROPIC_SONNET_4),
         goal="Extract nutrition facts from food image",
         instructions=dedent("""\
             You are a nutritionist analyzing food images to provide accurate nutrition information.
@@ -159,7 +159,6 @@ def nutrition_analysis_agent():
             """),
         storage=storage.GENERAL_SESSION_STORAGE,
         add_datetime_to_instructions=True,
-        num_history_runs=1,
-        num_history_sessions=1,
-        response_model=nutrition.FoodNutritionList,
+        add_history_to_messages=False,
+        response_model=FoodNutritionResponse,
     )

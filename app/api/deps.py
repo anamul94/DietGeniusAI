@@ -9,7 +9,7 @@ from app.core.config import settings
 from app.core.logging import logger
 from app.db.base import get_db
 from app.models.user import User, UserRole
-from app.schemas.token import TokenPayload
+from app.schemas.jwt_token import TokenPayload
 
 # Use HTTPBearer for more reliable token extraction
 security = HTTPBearer(auto_error=False)

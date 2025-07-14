@@ -19,3 +19,9 @@ def extract_json_from_response(response_text: str):
         return json.loads(json_str)
     except json.JSONDecodeError as e:
         raise ValueError(f"Failed to parse JSON block: {e}")
+    
+def from_pydantic_to_json(pydantic_object):
+    """
+    Convert a Pydantic model instance to a JSON string.
+    """
+    return pydantic_object.json()

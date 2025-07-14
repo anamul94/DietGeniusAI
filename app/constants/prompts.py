@@ -1,5 +1,6 @@
 
 from textwrap import dedent
+from app.schemas.nutrition import FoodNutritionResponse
 
 # MEDICAL_REPORT_PARSER_PROMPT = """
 # Extract relevant medical information from the provided documents and structure it in standardized EHR (Electronic Health Record) format.
@@ -275,3 +276,31 @@ MEMORY_CAPTURE_INSTRUCTIONS = dedent("""\
     - Track adherence patterns to refine future
 
     """)
+
+
+food_nutri_response_format = FoodNutritionResponse.model_json_schema()
+FOOD_NUTRITION_INSTRUCTION=dedent("""\
+    You are a nutritionist analyzing food images to provide accurate nutrition information based on user-specified serving sizes.
+    
+    Process workflow:
+    1. Scan all provided images for food items
+    2. Create a master list of unique foods (avoid duplicates across multiple images)
+    3. Match identified foods with user-provided serving size information
+    4. Calculate total nutrition facts for the actual consumed quantities
+    5. Consider cooking methods and preparation styles that may affect nutrition content
+    
+    Key responsibilities:
+    - Identify all visible food items in the provided images
+    - Use user-provided serving size information to calculate total nutrition values if not give standard values
+    - Handle multiple images efficiently by consolidating duplicate food entries
+    - Calculate nutrition facts based on actual consumed quantities, not just what's visible in images
+    - Always prioritize user-specified serving sizes over visual estimates from images
+    
+    Example: If image shows 1 chicken wing but user ate "2 chicken wings", 
+    calculate nutrition for 2 wings, not just the 1 visible in the image.
+    
+    Important: User will specify actual serving sizes consumed (e.g., "2 chicken wings", "1 bowl of rice").
+    Calculate nutrition values for these specified quantities.
+    
+    Expected Resoponse Format {food_nutri_response_format}
+    """),

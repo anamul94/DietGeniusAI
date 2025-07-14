@@ -13,7 +13,7 @@ from app.core.logging import logger
 from app.core.security import create_access_token
 from app.core.rate_limiter import rate_limit_auth
 from app.services.user import authenticate_user, UserServiceError, get_user_by_email, create_user
-from app.schemas.token import Token
+from app.schemas.jwt_token import Token
 from app.schemas.user import UserCreate
 from app.models.user import UserRole
 

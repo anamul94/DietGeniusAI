@@ -39,3 +39,4 @@ class User(Base):
     medical_reports = relationship("MedicalReport", back_populates="user")
     google_health_tokens = relationship("GoogleHealthToken", back_populates="user")
     google_health_data = relationship("GoogleHealthData", back_populates="user")
+    meal_entries = relationship("MealEntry", back_populates="user")

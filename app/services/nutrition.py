@@ -1,10 +1,13 @@
 from fastapi import UploadFile, HTTPException, status, File
 from app.core.logging import logger
-from app.schemas.nutrition import FoodNutritionList
+from app.schemas.nutrition import FoodNutritionResponse
 from typing import List
 from app.utils import image
 from app.agents.agetns import nutrition_analysis_agent
 from typing import Optional
+from agno.media import Image
+from app.utils.image import save_as_webp 
+
 
 
 
@@ -12,7 +15,7 @@ async def parse_nutrition(
     serving_size: str,
     user_id: int,
     session_id: str,
-    files: Optional[List[UploadFile]] = File(default=None)) -> FoodNutritionList:
+    files: Optional[List[UploadFile]] = File(default=None)):
     """
     Parse nutrition data from uploaded files.
 
@@ -36,22 +39,33 @@ async def parse_nutrition(
             filename = file.filename
             logger.info(f"Processing file: {filename}")
             file_bytes = await file.read()
-            base_64_image = image.convert_bytes_image_to_base64(file_bytes)
-            file_ext = filename.lower().split('.')[-1]
-            image_value = {
-                "format": file_ext,
-                "source": {"bytes": file_bytes}
-            }
+            saved_filepath = save_as_webp(file_bytes)
+            with open(saved_filepath, "rb") as img_file:
+                image_bytes = img_file.read()
+                image_value = Image(content=image_bytes, format="webp")
             images.append(image_value)
+            logger.info(f"saved_filepath: {saved_filepath}")
+            # base_64_image = image.convert_bytes_image_to_base64(file_bytes)
+            file_ext = filename.lower().split('.')[-1]
+            # image_value = {
+            #     "format": file_ext,
+            #     "source": {"bytes": file_bytes}
+            # }
+            
         
         message = f"""serving size {serving_size}
-                        images: {images}
+                       
                             """
-        response = nutrition_parser_agent.run(message=message, session_id=session_id)
-        logger.info(f"Response Nutrition Parser agent: {response}")
-        nutrition_data = response.content
-        return nutrition_data
-    
+        response = nutrition_parser_agent.run(message=message,
+                                              images=images,
+                                              user_id=user_id,session_id=session_id)
+        logger.info(f"Response from Nutrition Parser agent received {type(response.content)}")
+        # json_response = FoodNutritionResponse.model_dump_json(indent=4)
+        
+        # return FoodNutritionResponse.model_validate_json(response.content)
+        return response.content
+                        
+       
     except Exception as e:
         logger.error(f"Error parsing nutrition data: {str(e)}")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))

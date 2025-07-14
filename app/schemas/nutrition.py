@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field
-from typing import Optional
+from typing import Optional, List
 
 
 class NutrientValue(BaseModel):
@@ -51,4 +51,13 @@ class FoodNutrition(BaseModel):
     
 class FoodNutritionList(BaseModel):
     """Response model for multiple food items"""
-    foods: list[FoodNutrition] = Field(description="List of all unique food items with their nutrition information")
+    foods: List[FoodNutrition] = Field(description="List of all unique food items with their nutrition information")
+    
+class FoodNutritionResponse(BaseModel):
+    """Response model for a single food item"""
+    message: str = Field(description="Message any insight, warining or any other information")
+    food: FoodNutrition = Field(description="Food item with its nutrition information")
+    
+
+# print(FoodNutritionResponse.model_json_schema())
+# print(json.dumps(FoodNutritionResponse.model_json_schema(), indent=2))

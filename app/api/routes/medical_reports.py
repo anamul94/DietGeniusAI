@@ -12,6 +12,7 @@ from app.utils.id_gen import generate_custom_id
 
 from app.schemas.qa import QA, QaAns
 from app.services.nutrition import parse_nutrition
+from app.schemas.nutrition import FoodNutritionResponse
 
 
 router = APIRouter()
@@ -155,15 +156,15 @@ async def generate_session_id(
 ):
     try:
         # Fetch the user from the database   
-        return generate_custom_id(current_user)
+        return {"session_id": generate_custom_id(current_user)}
     
     except Exception as e:
         logger.error(f"Error generating session ID for user {current_user.id}: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail="Failed to generate session ID. Please try again later.")
     
-@router.post("/food-nutrition", status_code=status.HTTP_200_OK)
+@router.post("/food-nutrition", status_code=status.HTTP_200_OK, )
 async def upload_file(
-    files: Optional[List[UploadFile]] = File(default=None),
+    files: List[UploadFile] = File(...),
     serving_size: str = Form(description="serving size"),
     session_id: str = Form(description="agent session id"),
     current_user: User = Depends(get_current_active_user),
