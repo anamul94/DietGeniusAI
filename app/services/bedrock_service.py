@@ -12,6 +12,7 @@ from app.constants.bedrock import (
 from app.core.logging import logger
 from app.utils.json_parser import extract_json_from_response
 import json
+import base64
 
 
 
@@ -36,6 +37,7 @@ class BedrockService:
             List[Tuple[str, str]]: List of (filename, Claude response).
         """
         results = []
+        
 
         for file_bytes, filename, file_format in files:
             logger.info(f"Processing document: {filename} with format: {file_format}")
@@ -46,6 +48,7 @@ class BedrockService:
                     "role": "user",
                     "content": [
                         {"text": prompt},
+                        {"text": "Response must be in JSON format "},
                         {
                             "document": {
                                 "format": file_format,
@@ -98,7 +101,7 @@ class BedrockService:
         for file_bytes, filename in files:
             logger.info(f"Processing image: {filename}")
             
-            import base64
+           
             base64_image = base64.b64encode(file_bytes).decode('utf-8')
             
             # Determine image format from filename
@@ -127,7 +130,7 @@ class BedrockService:
                     inferenceConfig={"temperature": 0.1},
                 )
                 response_text = response["output"]["message"]["content"][0]["text"]
-                logger.info(f"Response from Bedrock: {response_text}")
+                logger.info(f"Response from Bedrock: {response}")
                 # extracted_json = extract_json_from_response(response_text)
                 results.append(dict(filename=filename, report=response_text))
                 logger.info(f"Successfully processed image: {filename}")
@@ -137,3 +140,67 @@ class BedrockService:
                 results.append((filename, f"ERROR: {str(e)}"))
 
         return results
+    
+    
+    
+    async def process_food_images(
+    self,
+    files: List[Tuple[bytes, str]],  # (file_bytes, filename)
+    prompt: str
+) -> List[Tuple[str, str]]:
+        """
+        Sends multiple images to Claude 3 Sonnet in a single request and returns responses.
+        """
+        if not files:
+            logger.warning("No images provided to process.")
+            return []
+
+        logger.info(f"Processing {len(files)} images in a single request")
+        # print(prompt)
+        # Prepare Bedrock content structure
+        # Ensure prompt is not None
+        content = [{"text": prompt or "Analyze these food images and provide nutritional information"}]
+
+        for file_bytes, filename in files:
+            logger.info(f"Adding image to batch: {filename}")
+
+            # Detect format
+            file_ext = filename.lower().split('.')[-1]
+            if file_ext not in ['jpeg', 'jpg', 'png']:
+                file_ext = 'jpeg'
+
+            # Bedrock Claude expects this structure - directly use bytes
+            content.append({
+                "image": {
+                    "format": file_ext,
+                    "source": {
+                        "bytes": file_bytes
+                    }
+                }
+            })
+
+        conversation = [
+            {
+                "role": "user",
+                "content": content
+            }
+        ]
+
+        try:
+            response = self.client.converse(
+                modelId="anthropic.claude-3-sonnet-20240229-v1:0",
+                messages=conversation,
+                inferenceConfig={"temperature": 0.1},
+            )
+
+            response_text = response["output"]["message"]["content"][0]["text"]
+            # logger.info(f"Response from Bedrock: {response_text}")
+            logger.info(f"Successfully processed {len(files)} images")
+
+            results = [(filename, response_text) for _, filename in files]
+            return response_text
+
+        except (ClientError, Exception) as e:
+            logger.error(f"Error processing images: {str(e)}")
+            results = [(filename, f"ERROR: {str(e)}") for _, filename in files]
+            return results

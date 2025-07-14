@@ -23,3 +23,8 @@ dependencies = [
     "pytest-cov>=6.2.1",
     "python-jose>=3.5.0",
 ]
+
+[dependency-groups]
+dev = [
+    "ollama>=0.5.1",
+]

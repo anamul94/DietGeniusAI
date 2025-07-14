@@ -10,6 +10,7 @@ from app.agents.memory.memory import get_memory_with_manager
 from app.schemas.agnent_qa import AgentQA
 from app.schemas.nutrition import FoodNutritionResponse
 from app.agents.memory import storage
+from agno.models.ollama import Ollama
 
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
 from opentelemetry.sdk.trace import TracerProvider
@@ -125,7 +126,9 @@ def get_memory_test_agent():
 def nutrition_analysis_agent():
     return Agent(
         name="Nutrition Analysis Agent",
-        model=bedrock_model.aws_model(id=bedrock.ANTHROPIC_SONNET_4),
+        # model=bedrock_model.aws_model(id=bedrock.ANTHROPIC_SONNET_3),
+        model= Ollama(id="gemma3:latest"),
+        parser_model=bedrock_model.aws_model(id=bedrock.NOVA_PRO),
         goal="Extract nutrition facts from food image",
         instructions=dedent("""\
             You are a nutritionist analyzing food images to provide accurate nutrition information.

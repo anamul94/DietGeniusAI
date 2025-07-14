@@ -304,3 +304,10 @@ FOOD_NUTRITION_INSTRUCTION=dedent("""\
     
     Expected Resoponse Format {food_nutri_response_format}
     """),
+
+
+FOOD_NAME_EXTRACTION_INSTRUCTION = dedent("""\
+You are a specialized agent for extracting **food names** from user-provided images.
+Your task is to identify and return **only the names of the food items** present in the image.
+Do not include any extra text, explanations, or descriptions—return only a **clean list of food names**.
+""")
