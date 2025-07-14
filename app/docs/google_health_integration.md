@@ -40,6 +40,8 @@ GOOGLE_HEALTH_API_URL=https://www.googleapis.com/fitness/v1
 GOOGLE_HEALTH_SCOPES=https://www.googleapis.com/auth/fitness.activity.read https://www.googleapis.com/auth/fitness.body.read https://www.googleapis.com/auth/fitness.nutrition.read https://www.googleapis.com/auth/fitness.sleep.read
 ```
 
+**Note about Heart Rate Data**: If you need heart rate data, you must add the `https://www.googleapis.com/auth/fitness.heart_rate.read` scope to the `GOOGLE_HEALTH_SCOPES` variable. However, this scope requires special verification from Google, and your application must go through the OAuth verification process to request this sensitive scope.
+
 ### 3. Database Migrations
 
 Run the database migrations to create the necessary tables:
@@ -207,7 +209,18 @@ Gets health data from the database for the specified time range.
 GET /api/google-health/status
 ```
 
-Checks if the user has connected their Google Health account.
+Checks if the user has connected their Google Health account and returns:
+- Connection status
+- Token expiration time
+- List of granted scopes
+
+#### Revoke Access
+
+```
+POST /api/google-health/revoke
+```
+
+Revokes the Google Health access token and removes it from the database. This endpoint is useful when a user wants to disconnect their Google Health account from your application.
 
 ## Implementation Details
 
@@ -268,6 +281,43 @@ When testing the OAuth flow, keep these important points in mind:
    - Complete the Google OAuth consent flow
    - Let the system redirect you to your frontend
    - Have your frontend immediately exchange the code for tokens
+
+5. **403 Forbidden Error when Fetching Data**: If you encounter a 403 Forbidden error when trying to fetch health data, check:
+   - That you've enabled the Fitness API in your Google Cloud Console project
+   - That the user has granted all the requested scopes during the consent screen
+   - That the scopes in your token match the ones required for the data you're trying to access
+   - That you're using the correct API endpoint for the data type
+
+   **Solution**:
+   - Verify the Fitness API is enabled in your Google Cloud Console
+   - Make sure to request all necessary scopes in your authorization URL
+   - Check the logs to see which scopes were actually granted
+   - Try re-authorizing with the user to ensure all scopes are granted
+   - If using specific data types like steps, ensure you're using the correct dataSourceId
+
+   **Required Scopes for Different Data Types**:
+   - Steps: `https://www.googleapis.com/auth/fitness.activity.read`
+   - Heart Rate: `https://www.googleapis.com/auth/fitness.heart_rate.read`
+   - Sleep: `https://www.googleapis.com/auth/fitness.sleep.read`
+   - Weight: `https://www.googleapis.com/auth/fitness.body.read`
+   - Nutrition: `https://www.googleapis.com/auth/fitness.nutrition.read`
+   
+   **Google Consent Screen Options**:
+   
+   When users authorize your application, they will see these options on the Google consent screen:
+   
+   1. "See your sleep data in Google Fit" - Grants `fitness.sleep.read` scope
+   2. "See info about your nutrition in Google Fit" - Grants `fitness.nutrition.read` scope
+   3. "See info about your body measurements in Google Fit" - Grants `fitness.body.read` scope
+   4. "Use Google Fit to see and store your physical activity data" - Grants `fitness.activity.read` scope
+   
+   **IMPORTANT**: The heart rate permission (`fitness.heart_rate.read`) requires special verification from Google. If you need heart rate data, you must complete the Google OAuth verification process and request this sensitive scope specifically. Without this verification, the heart rate permission option won't appear on the consent screen, and your application won't be able to access heart rate data.
+
+   **Common API Endpoints**:
+   - Aggregate data (steps, heart rate, weight, sleep): `/users/me/dataset:aggregate`
+   - Datasets (nutrition): `/users/me/dataSources/{dataSourceId}/datasets/{startTimeMillis}-{endTimeMillis}`
+   
+   **Note**: Initially we tried using the `/users/me/sessions` endpoint for sleep data, but it returns a 404 Not Found error. We now use the dataset:aggregate endpoint for sleep data as well.
 
 ### Logging
 

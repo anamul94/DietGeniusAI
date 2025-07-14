@@ -108,6 +108,49 @@ async def exchange_code_for_token(
         logger.error(f"Unexpected error in exchange_code_for_token: {str(e)}")
         raise GoogleHealthServiceError(f"Unexpected error: {str(e)}")
 
+async def revoke_access_token(db: Session, token: GoogleHealthToken) -> bool:
+    """
+    Revoke the access token and remove it from the database.
+    
+    Args:
+        db: Database session
+        token: GoogleHealthToken object
+        
+    Returns:
+        bool: True if successful, False otherwise
+    """
+    try:
+        # Prepare revoke token request
+        revoke_url = "https://oauth2.googleapis.com/revoke"
+        payload = {
+            "token": token.access_token
+        }
+        headers = {
+            "Content-Type": "application/x-www-form-urlencoded"
+        }
+        
+        # Make revoke token request
+        response = requests.post(revoke_url, data=payload, headers=headers)
+        
+        # Log response for debugging
+        if response.status_code != 200:
+            logger.error(f"Token revocation failed with status {response.status_code}")
+            logger.error(f"Response content: {response.text}")
+            return False
+        
+        # Delete token from database
+        db.delete(token)
+        db.commit()
+        
+        return True
+        
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error revoking token: {str(e)}")
+        return False
+    except Exception as e:
+        logger.error(f"Unexpected error in revoke_access_token: {str(e)}")
+        return False
+
 async def refresh_access_token(db: Session, token: GoogleHealthToken) -> GoogleHealthToken:
     """
     Refresh the access token using the refresh token.
@@ -223,30 +266,67 @@ async def fetch_google_health_data(
         
         # Process each data type
         for data_type in data_types:
-            # Map data type to Google Fitness data source
-            data_source = map_data_type_to_source(data_type)
-            if not data_source:
-                logger.warning(f"Unsupported data type: {data_type}")
+            try:
+                # Check if token has required scope for this data type
+                if not check_required_scope(data_type, token.scope):
+                    logger.error(f"Missing required scope for data type {data_type}. Token scopes: {token.scope}")
+                    continue
+                    
+                # Map data type to Google Fitness data source
+                data_source = map_data_type_to_source(data_type)
+                if not data_source:
+                    logger.warning(f"Unsupported data type: {data_type}")
+                    continue
+                
+                # Prepare request parameters
+                start_time_millis = int(start_time.timestamp() * 1000)
+                end_time_millis = int(end_time.timestamp() * 1000)
+                
+                # Build request URL and payload based on data type
+                url, payload = build_data_request(data_type, data_source, start_time_millis, end_time_millis)
+                
+                # Log request details
+                logger.info(f"Fetching data for type: {data_type}")
+                logger.info(f"Request URL: {url}")
+                logger.info(f"Request payload: {payload}")
+                logger.info(f"Request headers: Authorization: Bearer [TOKEN_HIDDEN], Content-Type: {headers['Content-Type']}")
+                
+                # Make request to Google Fitness API
+                response = requests.post(url, headers=headers, json=payload)
+                
+                # Log response for debugging
+                if response.status_code != 200:
+                    logger.error(f"Google Fitness API error for {data_type}: Status {response.status_code}")
+                    logger.error(f"Response content: {response.text}")
+                    logger.error(f"Scopes in token: {token.scope}")
+                    
+                    # For nutrition data, this might be expected if no data is available
+                    if data_type == "nutrition" and response.status_code == 404:
+                        logger.warning(f"No nutrition data available for the specified time range")
+                        continue
+                    else:
+                        # For other data types, continue to next data type instead of failing completely
+                        logger.warning(f"Skipping {data_type} due to API error")
+                        continue
+                
+                response.raise_for_status()
+                response_data = response.json()
+                
+                # Process response data
+                processed_data = process_response_data(response_data, data_type, user_id)
+                
+                # Save data to database (avoiding duplicates)
+                saved_data = save_health_data(db, processed_data)
+                all_data.extend(saved_data)
+                
+            except requests.exceptions.RequestException as e:
+                logger.error(f"Error fetching {data_type} data: {str(e)}")
+                # Continue with other data types instead of failing completely
                 continue
-            
-            # Prepare request parameters
-            start_time_millis = int(start_time.timestamp() * 1000)
-            end_time_millis = int(end_time.timestamp() * 1000)
-            
-            # Build request URL and payload based on data type
-            url, payload = build_data_request(data_type, data_source, start_time_millis, end_time_millis)
-            
-            # Make request to Google Fitness API
-            response = requests.post(url, headers=headers, json=payload)
-            response.raise_for_status()
-            response_data = response.json()
-            
-            # Process response data
-            processed_data = process_response_data(response_data, data_type, user_id)
-            
-            # Save data to database (avoiding duplicates)
-            saved_data = save_health_data(db, processed_data)
-            all_data.extend(saved_data)
+            except Exception as e:
+                logger.error(f"Unexpected error processing {data_type}: {str(e)}")
+                # Continue with other data types instead of failing completely
+                continue
         
         return all_data
         
@@ -267,18 +347,46 @@ def map_data_type_to_source(data_type: str) -> str:
         "heart_rate": "com.google.heart_rate.bpm",
         "sleep": "com.google.sleep.segment",
         "weight": "com.google.weight",
-        "nutrition": "com.google.nutrition"
+        "nutrition": "com.google.calories.expended"  # Use calories as a proxy for nutrition data
     }
     return mapping.get(data_type)
 
+def check_required_scope(data_type: str, token_scope: str) -> bool:
+    """
+    Check if the token has the required scope for the data type.
+    
+    Args:
+        data_type: The type of data to check
+        token_scope: The scope string from the token
+        
+    Returns:
+        bool: True if the required scope is present, False otherwise
+    """
+    scope_mapping = {
+        "steps": "https://www.googleapis.com/auth/fitness.activity.read",
+        "heart_rate": "https://www.googleapis.com/auth/fitness.heart_rate.read",
+        "sleep": "https://www.googleapis.com/auth/fitness.sleep.read",
+        "weight": "https://www.googleapis.com/auth/fitness.body.read",
+        "nutrition": "https://www.googleapis.com/auth/fitness.nutrition.read"
+    }
+    
+    required_scope = scope_mapping.get(data_type)
+    if not required_scope:
+        return False
+        
+    return required_scope in token_scope
+
 def build_data_request(
-    data_type: str, 
-    data_source: str, 
-    start_time_millis: int, 
+    data_type: str,
+    data_source: str,
+    start_time_millis: int,
     end_time_millis: int
 ) -> tuple:
     """Build the request URL and payload for the specific data type."""
     base_url = settings.GOOGLE_HEALTH_API_URL
+    
+    # Log the base URL for debugging
+    logger.info(f"Google Health API base URL: {base_url}")
     
     if data_type in ["steps", "heart_rate", "weight"]:
         url = f"{base_url}/users/me/dataset:aggregate"
@@ -290,18 +398,40 @@ def build_data_request(
             "startTimeMillis": start_time_millis,
             "endTimeMillis": end_time_millis
         }
+        
+        # For steps, add additional fields required by the API
+        if data_type == "steps":
+            payload["aggregateBy"][0]["dataSourceId"] = "derived:com.google.step_count.delta:com.google.android.gms:estimated_steps"
     elif data_type == "sleep":
-        url = f"{base_url}/users/me/sessions"
+        # For sleep data, use the dataset:aggregate endpoint instead of sessions
+        # The sessions endpoint is returning 404 Not Found
+        url = f"{base_url}/users/me/dataset:aggregate"
         payload = {
-            "startTime": start_time_millis,
-            "endTime": end_time_millis,
-            "activityType": "72"  # Sleep activity type
+            "aggregateBy": [{
+                "dataTypeName": data_source
+            }],
+            "bucketByTime": {"durationMillis": 86400000},  # 1 day
+            "startTimeMillis": start_time_millis,
+            "endTimeMillis": end_time_millis
         }
     elif data_type == "nutrition":
-        url = f"{base_url}/users/me/dataSources/{data_source}/datasets/{start_time_millis}-{end_time_millis}"
-        payload = {}
+        # For nutrition data, use the dataset:aggregate endpoint like other data types
+        # Nutrition data should be aggregated, not fetched from a specific data source
+        url = f"{base_url}/users/me/dataset:aggregate"
+        payload = {
+            "aggregateBy": [{
+                "dataTypeName": data_source
+            }],
+            "bucketByTime": {"durationMillis": 86400000},  # 1 day
+            "startTimeMillis": start_time_millis,
+            "endTimeMillis": end_time_millis
+        }
     else:
         raise GoogleHealthServiceError(f"Unsupported data type: {data_type}")
+    
+    # Log the constructed URL and payload
+    logger.info(f"Built URL for {data_type}: {url}")
+    logger.info(f"Built payload for {data_type}: {payload}")
     
     return url, payload
 
@@ -351,63 +481,98 @@ def process_response_data(
                                     )
                                 )
     elif data_type == "sleep":
-        # Process sleep data
-        if "session" in response_data:
-            for session in response_data["session"]:
-                start_time = datetime.fromtimestamp(
-                    int(session["startTimeMillis"]) / 1000,
-                    tz=timezone.utc
-                )
-                end_time = datetime.fromtimestamp(
-                    int(session["endTimeMillis"]) / 1000,
-                    tz=timezone.utc
-                )
-                
-                value = {
-                    "sleep_duration_minutes": (end_time - start_time).total_seconds() / 60,
-                    "sleep_type": session.get("name", "Unknown")
-                }
-                
-                processed_data.append(
-                    GoogleHealthDataCreate(
-                        user_id=user_id,
-                        data_type=data_type,
-                        start_time=start_time,
-                        end_time=end_time,
-                        value=value,
-                        source="Google Fit"
-                    )
-                )
+        # Process sleep data from dataset:aggregate endpoint
+        if "bucket" in response_data:
+            for bucket in response_data["bucket"]:
+                if "dataset" in bucket:
+                    for dataset in bucket["dataset"]:
+                        if "point" in dataset:
+                            for point in dataset["point"]:
+                                start_time = datetime.fromtimestamp(
+                                    int(point["startTimeNanos"]) / 1_000_000_000,
+                                    tz=timezone.utc
+                                )
+                                end_time = datetime.fromtimestamp(
+                                    int(point["endTimeNanos"]) / 1_000_000_000,
+                                    tz=timezone.utc
+                                )
+                                
+                                value = {
+                                    "sleep_duration_minutes": (end_time - start_time).total_seconds() / 60
+                                }
+                                
+                                # Extract sleep stage if available
+                                if "value" in point:
+                                    for val in point["value"]:
+                                        if "intVal" in val:
+                                            # Sleep stage values:
+                                            # 1: Awake (during sleep)
+                                            # 2: Sleep
+                                            # 3: Out-of-bed
+                                            # 4: Light sleep
+                                            # 5: Deep sleep
+                                            # 6: REM sleep
+                                            sleep_stage_map = {
+                                                1: "Awake",
+                                                2: "Sleep",
+                                                3: "Out-of-bed",
+                                                4: "Light sleep",
+                                                5: "Deep sleep",
+                                                6: "REM sleep"
+                                            }
+                                            sleep_stage = val.get("intVal", 0)
+                                            value["sleep_stage"] = sleep_stage
+                                            value["sleep_stage_name"] = sleep_stage_map.get(sleep_stage, "Unknown")
+                                
+                                processed_data.append(
+                                    GoogleHealthDataCreate(
+                                        user_id=user_id,
+                                        data_type=data_type,
+                                        start_time=start_time,
+                                        end_time=end_time,
+                                        value=value,
+                                        source="Google Fit"
+                                    )
+                                )
     elif data_type == "nutrition":
-        # Process nutrition data
-        if "point" in response_data:
-            for point in response_data["point"]:
-                start_time = datetime.fromtimestamp(
-                    int(point["startTimeNanos"]) / 1_000_000_000,
-                    tz=timezone.utc
-                )
-                end_time = datetime.fromtimestamp(
-                    int(point["endTimeNanos"]) / 1_000_000_000,
-                    tz=timezone.utc
-                )
-                
-                value = {}
-                if "value" in point:
-                    for val in point["value"]:
-                        if "mapVal" in val:
-                            for map_val in val["mapVal"]:
-                                value[map_val["key"]] = map_val["value"]["fpVal"]
-                
-                processed_data.append(
-                    GoogleHealthDataCreate(
-                        user_id=user_id,
-                        data_type=data_type,
-                        start_time=start_time,
-                        end_time=end_time,
-                        value=value,
-                        source="Google Fit"
-                    )
-                )
+        # Process nutrition data (calories expended) from aggregate endpoint
+        if "bucket" in response_data:
+            for bucket in response_data["bucket"]:
+                if "dataset" in bucket:
+                    for dataset in bucket["dataset"]:
+                        if "point" in dataset:
+                            for point in dataset["point"]:
+                                start_time = datetime.fromtimestamp(
+                                    int(point["startTimeNanos"]) / 1_000_000_000,
+                                    tz=timezone.utc
+                                )
+                                end_time = datetime.fromtimestamp(
+                                    int(point["endTimeNanos"]) / 1_000_000_000,
+                                    tz=timezone.utc
+                                )
+                                
+                                value = {}
+                                if "value" in point:
+                                    for val in point["value"]:
+                                        if "fpVal" in val:
+                                            # Handle calories expended as float value
+                                            value["calories_expended"] = val["fpVal"]
+                                        elif "intVal" in val:
+                                            # Handle calories expended as integer value
+                                            value["calories_expended"] = val["intVal"]
+                                
+                                # Only add data if we have actual values
+                                if value:
+                                    processed_data.append(
+                                        GoogleHealthDataCreate(
+                                            user_id=user_id,
+                                            data_type=data_type,
+                                            start_time=start_time,
+                                            end_time=end_time,
+                                            value=value,
+                                            source="Google Fit"
+                                        )
+                                    )
     
     return processed_data
 
@@ -480,3 +645,64 @@ async def get_user_health_data(
         query = query.filter(GoogleHealthData.end_time <= end_time)
     
     return query.order_by(GoogleHealthData.start_time.desc()).all()
+
+async def list_available_data_sources(
+    db: Session,
+    user_id: int
+) -> List[Dict[str, Any]]:
+    """
+    List available data sources from Google Fitness API for debugging.
+    
+    Args:
+        db: Database session
+        user_id: User ID
+        
+    Returns:
+        List[Dict[str, Any]]: List of available data sources
+    """
+    try:
+        # Get valid token
+        token = await get_valid_token(db, user_id)
+        
+        # Prepare headers
+        headers = {
+            "Authorization": f"Bearer {token.access_token}",
+            "Content-Type": "application/json"
+        }
+        
+        # Request available data sources
+        base_url = settings.GOOGLE_HEALTH_API_URL
+        url = f"{base_url}/users/me/dataSources"
+        
+        logger.info(f"Fetching available data sources from: {url}")
+        
+        response = requests.get(url, headers=headers)
+        
+        if response.status_code != 200:
+            logger.error(f"Error fetching data sources: Status {response.status_code}")
+            logger.error(f"Response content: {response.text}")
+            return []
+        
+        response_data = response.json()
+        
+        # Extract data source information
+        data_sources = []
+        if "dataSource" in response_data:
+            for source in response_data["dataSource"]:
+                data_sources.append({
+                    "dataStreamId": source.get("dataStreamId", ""),
+                    "dataType": source.get("dataType", {}).get("name", ""),
+                    "name": source.get("name", ""),
+                    "type": source.get("type", ""),
+                    "application": source.get("application", {}).get("name", "")
+                })
+        
+        logger.info(f"Found {len(data_sources)} data sources")
+        for source in data_sources:
+            logger.info(f"Data source: {source}")
+        
+        return data_sources
+        
+    except Exception as e:
+        logger.error(f"Error listing data sources: {str(e)}")
+        return []

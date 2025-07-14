@@ -41,7 +41,20 @@ class Settings(BaseSettings):
     GOOGLE_HEALTH_API_URL: str = os.getenv("GOOGLE_HEALTH_API_URL", "https://www.googleapis.com/fitness/v1")
     GOOGLE_HEALTH_SCOPES: str = os.getenv(
         "GOOGLE_HEALTH_SCOPES",
-        "https://www.googleapis.com/auth/fitness.activity.read https://www.googleapis.com/auth/fitness.body.read https://www.googleapis.com/auth/fitness.nutrition.read https://www.googleapis.com/auth/fitness.sleep.read"
+        "https://www.googleapis.com/auth/fitness.activity.read " +
+        "https://www.googleapis.com/auth/fitness.activity.write " +
+        "https://www.googleapis.com/auth/fitness.body.read " +
+        "https://www.googleapis.com/auth/fitness.body.write " +
+        "https://www.googleapis.com/auth/fitness.nutrition.read " +
+        "https://www.googleapis.com/auth/fitness.nutrition.write " +
+        "https://www.googleapis.com/auth/fitness.sleep.read " +
+        "https://www.googleapis.com/auth/fitness.sleep.write " +
+        "https://www.googleapis.com/auth/fitness.location.read " +
+        "https://www.googleapis.com/auth/fitness.blood_glucose.read " +
+        "https://www.googleapis.com/auth/fitness.blood_pressure.read " +
+        "https://www.googleapis.com/auth/fitness.heart_rate.read " +
+        "https://www.googleapis.com/auth/fitness.oxygen_saturation.read " +
+        "https://www.googleapis.com/auth/fitness.reproductive_health.read"
     )
     
     # Memory Configuration

@@ -13,6 +13,8 @@ from app.services.google_health import (
     exchange_code_for_token,
     fetch_google_health_data,
     get_user_health_data,
+    revoke_access_token,
+    list_available_data_sources,
     GoogleHealthServiceError
 )
 from app.schemas.google_health import (
@@ -35,6 +37,11 @@ async def get_google_health_auth_url(request: Request):
     Get the Google Health authorization URL.
     """
     try:
+        # Log the client ID and redirect URI for debugging
+        logger.info(f"Using client ID: {settings.GOOGLE_HEALTH_CLIENT_ID[:10]}... (truncated)")
+        logger.info(f"Using redirect URI: {settings.GOOGLE_HEALTH_REDIRECT_URI}")
+        logger.info(f"Using scopes: {settings.GOOGLE_HEALTH_SCOPES}")
+        
         # Build the authorization URL
         auth_url = (
             "https://accounts.google.com/o/oauth2/auth"
@@ -44,6 +51,7 @@ async def get_google_health_auth_url(request: Request):
             "&access_type=offline"
             "&response_type=code"
             "&prompt=consent"
+            "&include_granted_scopes=true"  # Include previously granted scopes
         )
         
         return {"auth_url": auth_url}
@@ -249,13 +257,79 @@ async def get_google_health_status(
             GoogleHealthTokenModel.user_id == current_user.id
         ).first()
         
-        return {
+        result = {
             "connected": token is not None,
             "expires_at": token.expires_at if token else None
         }
+        
+        # Add scopes information if token exists
+        if token:
+            result["scopes"] = token.scope.split()
+            
+        return result
     except Exception as e:
         logger.error(f"Error checking Google Health status: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error checking Google Health status: {str(e)}"
+        )
+
+@router.post("/revoke",
+    summary="Revoke Google Health Access",
+    description="Revokes the Google Health access token and removes it from the database.",
+    response_description="Revocation status"
+)
+async def revoke_google_health_access(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Revoke Google Health access for the current user.
+    """
+    try:
+        # Get token for user
+        token = db.query(GoogleHealthTokenModel).filter(
+            GoogleHealthTokenModel.user_id == current_user.id
+        ).first()
+        
+        if not token:
+            return {"success": True, "message": "No Google Health connection found"}
+        
+        # Revoke token
+        success = await revoke_access_token(db, token)
+        
+        if success:
+            return {"success": True, "message": "Google Health access successfully revoked"}
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to revoke Google Health access"
+            )
+    except Exception as e:
+        logger.error(f"Error revoking Google Health access: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error revoking Google Health access: {str(e)}"
+        )
+
+@router.get("/data-sources",
+    summary="List Available Data Sources",
+    description="Lists all available data sources from Google Fitness API for debugging and development purposes.",
+    response_description="List of available data sources"
+)
+async def list_data_sources(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    List available data sources from Google Fitness API.
+    """
+    try:
+        data_sources = await list_available_data_sources(db, current_user.id)
+        return {"data_sources": data_sources, "total": len(data_sources)}
+    except Exception as e:
+        logger.error(f"Error listing data sources: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error listing data sources: {str(e)}"
         )
