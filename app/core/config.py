@@ -34,6 +34,16 @@ class Settings(BaseSettings):
     GOOGLE_REDIRECT_URI: Optional[str] = os.getenv("GOOGLE_REDIRECT_URI")
     FRONTEND_URL: str = os.getenv("FRONTEND_URL", "http://localhost:3000")
     
+    # Google Health API
+    GOOGLE_HEALTH_CLIENT_ID: Optional[str] = os.getenv("GOOGLE_HEALTH_CLIENT_ID", os.getenv("GOOGLE_CLIENT_ID"))
+    GOOGLE_HEALTH_CLIENT_SECRET: Optional[str] = os.getenv("GOOGLE_HEALTH_CLIENT_SECRET", os.getenv("GOOGLE_CLIENT_SECRET"))
+    GOOGLE_HEALTH_REDIRECT_URI: Optional[str] = os.getenv("GOOGLE_HEALTH_REDIRECT_URI")
+    GOOGLE_HEALTH_API_URL: str = os.getenv("GOOGLE_HEALTH_API_URL", "https://www.googleapis.com/fitness/v1")
+    GOOGLE_HEALTH_SCOPES: str = os.getenv(
+        "GOOGLE_HEALTH_SCOPES",
+        "https://www.googleapis.com/auth/fitness.activity.read https://www.googleapis.com/auth/fitness.body.read https://www.googleapis.com/auth/fitness.nutrition.read https://www.googleapis.com/auth/fitness.sleep.read"
+    )
+    
     # Memory Configuration
     USER_MEMORY_TABLE: str = os.getenv("USER_MEMORY_TABLE")
     USER_DAILY_LOG_SESSION_TABLE:str=os.getenv("USER_DAILY_LOG_SESSION_TABLE")

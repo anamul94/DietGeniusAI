@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.sessions import SessionMiddleware
-from app.api.routes import users, medical_reports
+from app.api.routes import users, medical_reports, google_health
 from app.core.config import settings
 from app.db.base import Base, engine
 from app.core.logging import setup_logger
@@ -15,7 +15,28 @@ Base.metadata.create_all(bind=engine)
 app = FastAPI(
     title=settings.PROJECT_NAME,
     version=settings.PROJECT_VERSION,
-    debug=settings.DEBUG
+    debug=settings.DEBUG,
+    description="DietGeniusAI API - A nutrition and diet management platform with Google Health integration",
+    openapi_tags=[
+        {
+            "name": "auth",
+            "description": "Authentication operations"
+        },
+        {
+            "name": "users",
+            "description": "User management operations"
+        },
+        {
+            "name": "medical-reports",
+            "description": "Medical reports operations"
+        },
+        {
+            "name": "google-health",
+            "description": "Google Health API integration for fetching health and fitness data"
+        }
+    ],
+    docs_url="/api/docs",
+    redoc_url="/api/redoc"
 )
 
 # Improved SessionMiddleware settings for OAuth session reliability
@@ -42,6 +63,7 @@ from app.api.routes import auth
 app.include_router(auth.router, prefix="/api/auth", tags=["auth"])
 app.include_router(users.router, prefix="/api/users", tags=["users"])
 app.include_router(medical_reports.router, prefix="/api/medical-reports", tags=["medical-reports"])
+app.include_router(google_health.router, prefix="/api/google-health", tags=["google-health"])
 
 @app.on_event("startup")
 async def startup_event():

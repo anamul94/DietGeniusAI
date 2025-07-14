@@ -1,0 +1,178 @@
+# Google Health API Integration
+
+This document provides instructions on how to set up and use the Google Health API integration in the DietGeniusAI application.
+
+## Overview
+
+The Google Health API integration allows users to connect their Google Fit accounts to the application and sync their health data. The integration includes:
+
+1. Authentication with Google Health API
+2. Fetching health data from Google Health API
+3. Storing health data in the database
+4. Daily automatic sync of health data
+
+## Setup Instructions
+
+### 1. Google Cloud Console Setup
+
+1. Go to the [Google Cloud Console](https://console.cloud.google.com/)
+2. Create a new project or select an existing one
+3. Enable the Fitness API for your project
+4. Create OAuth 2.0 credentials:
+   - Go to "APIs & Services" > "Credentials"
+   - Click "Create Credentials" > "OAuth client ID"
+   - Select "Web application" as the application type
+   - Add authorized redirect URIs:
+     - `https://your-domain.com/api/google-health/auth/callback` (production)
+     - `http://localhost:8000/api/google-health/auth/callback` (development)
+   - Click "Create"
+   - Note the Client ID and Client Secret
+
+### 2. Environment Variables
+
+Add the following environment variables to your `.env` file:
+
+```
+GOOGLE_HEALTH_CLIENT_ID=your_client_id
+GOOGLE_HEALTH_CLIENT_SECRET=your_client_secret
+GOOGLE_HEALTH_REDIRECT_URI=http://localhost:8000/api/google-health/auth/callback
+GOOGLE_HEALTH_API_URL=https://www.googleapis.com/fitness/v1
+GOOGLE_HEALTH_SCOPES=https://www.googleapis.com/auth/fitness.activity.read https://www.googleapis.com/auth/fitness.body.read https://www.googleapis.com/auth/fitness.nutrition.read https://www.googleapis.com/auth/fitness.sleep.read
+```
+
+### 3. Database Migrations
+
+Run the database migrations to create the necessary tables:
+
+```bash
+alembic revision --autogenerate -m "Add Google Health models"
+alembic upgrade head
+```
+
+### 4. Cron Job Setup
+
+Set up a cron job to run the daily sync script at 12 AM:
+
+```bash
+crontab -e
+```
+
+Add the following line:
+
+```
+0 0 * * * /path/to/python /path/to/app/cron/google_health_sync.py
+```
+
+## API Endpoints
+
+### Authentication
+
+#### Get Authorization URL
+
+```
+GET /api/google-health/auth-url
+```
+
+Returns the Google Health authorization URL that the user should be redirected to.
+
+#### Handle Authorization Callback
+
+```
+POST /api/google-health/auth/callback
+```
+
+Body:
+```json
+{
+  "code": "authorization_code_from_google",
+  "redirect_uri": "http://localhost:8000/api/google-health/auth/callback"
+}
+```
+
+Exchanges the authorization code for access and refresh tokens.
+
+### Data Management
+
+#### Fetch Health Data
+
+```
+POST /api/google-health/data/fetch
+```
+
+Body:
+```json
+{
+  "data_types": ["steps", "heart_rate", "sleep", "weight", "nutrition"],
+  "start_date": "2023-01-01T00:00:00Z",
+  "end_date": "2023-01-02T00:00:00Z"
+}
+```
+
+Fetches health data from Google Health API for the specified time range.
+
+#### Get Health Data
+
+```
+GET /api/google-health/data?data_type=steps&start_date=2023-01-01T00:00:00Z&end_date=2023-01-02T00:00:00Z
+```
+
+Gets health data from the database for the specified time range.
+
+#### Check Connection Status
+
+```
+GET /api/google-health/status
+```
+
+Checks if the user has connected their Google Health account.
+
+## Implementation Details
+
+### Data Types
+
+The following data types are supported:
+
+- `steps`: Step count
+- `heart_rate`: Heart rate measurements
+- `sleep`: Sleep segments
+- `weight`: Weight measurements
+- `nutrition`: Nutrition information
+
+### Duplicate Data Handling
+
+The system automatically checks for duplicate data when saving to the database. Duplicate data is identified by:
+
+- User ID
+- Data type
+- Start time
+- End time
+
+### Token Refresh
+
+Access tokens are automatically refreshed when they expire or are about to expire (within 5 minutes).
+
+## Troubleshooting
+
+### Common Issues
+
+1. **Authorization Error**: Make sure the redirect URI in your code matches exactly with the one registered in the Google Cloud Console.
+
+2. **Scope Error**: Ensure that all required scopes are included in the authorization URL.
+
+3. **Token Refresh Error**: If token refresh fails, the user may need to re-authorize the application.
+
+4. **Data Not Syncing**: Check the cron job logs at `/var/log/google_health_sync.log` for errors.
+
+### Logging
+
+Logs for the Google Health integration can be found in:
+
+- Application logs for API requests
+- `/var/log/google_health_sync.log` for the cron job
+
+## Security Considerations
+
+- Access tokens are stored in the database and should be encrypted at rest
+- All API endpoints require user authentication
+- The application only requests the minimum required scopes
+- Tokens are refreshed securely using the refresh token flow

@@ -300,3 +300,134 @@ Updates specific profile information for the current user.
     - **Body**: (Same as Get Current User response)
     - **Error Responses**:
         - `500 Internal Server Error`: Error updating profile.
+
+## Google Health API
+
+The Google Health API integration allows users to connect their Google Fit accounts and sync their health data.
+
+### Get Google Health Authorization URL
+
+Returns the URL that the user should be redirected to in order to authorize the application to access their Google Health data.
+
+- **URL**: `/api/google-health/auth-url`
+- **Method**: `GET`
+- **Authentication**: Required (User)
+- **Response**:
+    - **Status**: `200 OK`
+    - **Body**:
+        ```json
+        {
+            "auth_url": "string (URL)"
+        }
+        ```
+    - **Error Responses**:
+        - `500 Internal Server Error`: Error generating Google Health auth URL.
+
+### Handle Google Health Authorization Callback
+
+Exchanges the authorization code for access and refresh tokens.
+
+- **URL**: `/api/google-health/auth/callback`
+- **Method**: `POST`
+- **Authentication**: Required (User)
+- **Request Body**: `application/json`
+    ```json
+    {
+        "code": "string (authorization code from Google)",
+        "redirect_uri": "string (redirect URI used in the authorization request)"
+    }
+    ```
+- **Response**:
+    - **Status**: `200 OK`
+    - **Body**:
+        ```json
+        {
+            "id": "integer",
+            "user_id": "integer",
+            "access_token": "string",
+            "refresh_token": "string",
+            "token_type": "string",
+            "expires_at": "string (datetime)",
+            "scope": "string",
+            "created_at": "string (datetime)",
+            "updated_at": "string (datetime, optional)"
+        }
+        ```
+    - **Error Responses**:
+        - `400 Bad Request`: Google Health auth error.
+        - `500 Internal Server Error`: Unexpected error.
+
+### Fetch Health Data from Google Health API
+
+Fetches health data from Google Health API for the specified data types and time range.
+
+- **URL**: `/api/google-health/data/fetch`
+- **Method**: `POST`
+- **Authentication**: Required (User)
+- **Request Body**: `application/json`
+    ```json
+    {
+        "data_types": ["string (e.g., steps, heart_rate, sleep, weight, nutrition)"],
+        "start_date": "string (datetime, optional)",
+        "end_date": "string (datetime, optional)"
+    }
+    ```
+- **Response**:
+    - **Status**: `200 OK`
+    - **Body**:
+        ```json
+        {
+            "items": [
+                {
+                    "id": "integer",
+                    "user_id": "integer",
+                    "data_type": "string",
+                    "start_time": "string (datetime)",
+                    "end_time": "string (datetime)",
+                    "value": "object",
+                    "source": "string",
+                    "created_at": "string (datetime)"
+                }
+            ],
+            "total": "integer"
+        }
+        ```
+    - **Error Responses**:
+        - `400 Bad Request`: Google Health data fetch error.
+        - `500 Internal Server Error`: Unexpected error.
+
+### Get Health Data from Database
+
+Retrieves health data from the database for the specified data type and time range.
+
+- **URL**: `/api/google-health/data`
+- **Method**: `GET`
+- **Authentication**: Required (User)
+- **Query Parameters**:
+    - `data_type`: `string` (optional) - Type of health data to retrieve (e.g., steps, heart_rate, sleep).
+    - `start_date`: `string (datetime)` (optional) - Start date for filtering data.
+    - `end_date`: `string (datetime)` (optional) - End date for filtering data.
+- **Response**:
+    - **Status**: `200 OK`
+    - **Body**: (Same as Fetch Health Data response)
+    - **Error Responses**:
+        - `500 Internal Server Error`: Error getting health data.
+
+### Check Google Health Connection Status
+
+Checks if the user has connected their Google Health account.
+
+- **URL**: `/api/google-health/status`
+- **Method**: `GET`
+- **Authentication**: Required (User)
+- **Response**:
+    - **Status**: `200 OK`
+    - **Body**:
+        ```json
+        {
+            "connected": "boolean",
+            "expires_at": "string (datetime, optional)"
+        }
+        ```
+    - **Error Responses**:
+        - `500 Internal Server Error`: Error checking Google Health status.
