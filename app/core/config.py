@@ -7,7 +7,7 @@ from dotenv import load_dotenv
 load_dotenv(override=True)
 
 class Settings(BaseSettings):
-    PROJECT_NAME: str = "FastAPI App"
+    PROJECT_NAME: str = "DietTracker"
     PROJECT_VERSION: str = "1.0.0"
     ENVIRONMENT: str = os.getenv("ENVIRONMENT", "development")
     DEBUG: bool = os.getenv("DEBUG", "false").lower() == "true"
@@ -35,7 +35,9 @@ class Settings(BaseSettings):
     FRONTEND_URL: str = os.getenv("FRONTEND_URL", "http://localhost:3000")
     
     # Memory Configuration
-    USER_MEMORY_TABLE: str = os.getenv("USER_MEMORY_TABLE", "user_memory")
+    USER_MEMORY_TABLE: str = os.getenv("USER_MEMORY_TABLE")
+    USER_DAILY_LOG_SESSION_TABLE:str=os.getenv("USER_DAILY_LOG_SESSION_TABLE")
+    GENERAL_SESSION_TABLE:str=os.getenv("GENERAL_SESSION_TABLE")
     
     # Langfuse Configuration
     LANGFUSE_PUBLIC_KEY: Optional[str] = os.getenv("LANGFUSE_PUBLIC_KEY")

@@ -8,6 +8,8 @@ from app.agents.models.model_provider import ModelProvider
 from app.constants import bedrock, prompts
 from app.agents.memory.memory import get_memory_with_manager
 from app.schemas.agnent_qa import AgentQA
+from app.schemas import nutrition
+from app.agents.memory import storage
 
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
 from opentelemetry.sdk.trace import TracerProvider
@@ -117,4 +119,46 @@ def get_memory_test_agent():
          Generate a structured and medically accurate summary based
          on the user's memory and experiences. The summary should be concise, clinically relevant, and easy to understand by healthcare professionals. Focus on extracting key health information such as symptoms, duration, severity, triggers, lifestyle factors,
          and any previous medical history mentioned by the user."""),
+    )
+      
+      
+def nutrition_analysis_agent():
+    return Agent(
+        name="Nutrition Analysis Agent",
+        model=bedrock_model.aws_model(id=bedrock.ANTHROPIC_HAIKU_3),
+        goal="Extract nutrition facts from food image",
+        instructions=dedent("""\
+            You are a nutritionist analyzing food images to provide accurate nutrition information.
+            
+            Key responsibilities:
+            - Identify all visible food items in the provided images
+            - Use the user-provided serving size information to calculate total nutrition values
+            - Handle multiple images efficiently by avoiding duplicate food entries
+            - When the same food appears across multiple images, consolidate into a single entry
+            - Calculate nutrition facts based on actual consumed quantities, not just what's visible in images
+            - Consider cooking methods and preparation styles that may affect nutrition content
+            
+            Important: User will specify actual serving sizes consumed (e.g., "2 chicken wings", "1 bowl of rice").
+            Calculate nutrition values for these specified quantities, not just what appears in the image.
+            
+            """),
+        
+        system_message=dedent("""\
+            Analyze food images to identify unique food items and calculate nutrition values based on user-specified serving sizes.
+            
+            Process workflow:
+            1. Scan all provided images for food items
+            2. Create a master list of unique foods (avoid duplicates)
+            3. Match identified foods with user-provided serving size information
+            4. Calculate total nutrition facts for the actual consumed quantities
+            
+            Example: If image shows 1 chicken wing but user ate "2 chicken wings", 
+            calculate nutrition for 2 wings, not just the 1 visible in the image.
+            
+            Always prioritize user-specified serving sizes over visual estimates from images.
+            """),
+        storage=storage.GENERAL_SESSION_STORAGE,
+        add_datetime_to_instructions=True,
+        add_history_to_messages=True,
+        response_model=nutrition.FoodNutritionList,
     )

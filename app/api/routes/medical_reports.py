@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, File, UploadFile, HTTPException, status, Query
+from fastapi import APIRouter, Depends, File, UploadFile, HTTPException, status, Query, Form
 from typing import List, Optional
 from sqlalchemy.orm import Session
 from app.core.logging import logger
@@ -8,8 +8,10 @@ from app.api.deps import get_current_active_user
 from app.models.user import User
 from app.models.medical import MedicalReport
 from app.db.base import get_db
+from app.utils.id_gen import generate_custom_id
 
 from app.schemas.qa import QA, QaAns
+from app.services.nutrition import parse_nutrition
 
 
 router = APIRouter()
@@ -145,3 +147,38 @@ async def memory_test(
     except Exception as e:
         logger.error(f"Error in onboarding QA for user {current_user.id}: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail="Failed to process onboarding QA.")
+    
+    
+@router.get("/generate-session-id/", status_code=status.HTTP_200_OK)
+async def generate_session_id(
+    current_user: User = Depends(get_current_active_user),
+):
+    try:
+        # Fetch the user from the database   
+        return generate_custom_id(current_user)
+    
+    except Exception as e:
+        logger.error(f"Error generating session ID for user {current_user.id}: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to generate session ID. Please try again later.")
+    
+@router.post("/food-nutrition", status_code=status.HTTP_200_OK)
+async def upload_file(
+    files: Optional[List[UploadFile]] = File(default=None),
+    serving_size: str = Form(description="serving size"),
+    session_id: str = Form(description="agent session id"),
+):
+    if files is not None and len(files) > 0:
+        for file in files:
+            if file.content_type not in ["image/jpeg", "image/png"]:
+                raise HTTPException(status_code=400, detail="Invalid file type. Only JPEG and PNG images are allowed.")
+    try:
+        # Fetch the user from the database
+        nutrition_parser_agent = await parse_nutrition(
+            session_id=session_id,
+            serving_size=serving_size,
+            files=files)
+        return nutrition_parser_agent
+    
+    except Exception as e:
+        logger.error(f"Error for parsing food nutrition value: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to upload file. Please try again later.")
