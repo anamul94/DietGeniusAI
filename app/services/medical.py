@@ -97,22 +97,22 @@ async def user_onboarding_qa(
             user_message = json.dumps(data_dict)
         else:
             # Add completion instruction for round 3
-            if ans.count == 2:
-                completion_note = "This is the final question. After this response, provide a comprehensive assessment summary."
-            else:
-                completion_note = ""
+            # if ans.count == 2:
+                # completion_note = "This is the final question. After this response, provide a comprehensive assessment summary."
+            # else:
+               
             
-            data = {
+                data = {
                 "answer": ans.answer,
                 "qa_round": ans.count+1,
-                "completion_note": completion_note
-            }
-            user_message = json.dumps(data)
-        
+                         }
+                user_message = json.dumps(data)
+    
         # Process the user message
+        # logger.info(f"User message: {user_message}")
         response =  agent.run(message=user_message, user_id=str(user_id), session_id=str(user_id))
         qa_res = response.content
-        logger.info(f"Agent response for user {user_id}: {response}")
+        # Remove duplicate logging as the agent library already logs this
         
         # Update onboarding status if completed (after 4 rounds)
         if qa_res.is_done:
@@ -128,17 +128,18 @@ async def user_onboarding_qa(
         #         db.add(user)
         #         db.commit()
         
-        chat_hist = {
-            "question": qa_res.question,
-        }
-        prev_hist = ans.chat_history if ans.chat_history else []
-        prev_hist.append(chat_hist)
+        # chat_hist = {
+        #     "question": qa_res.question,
+        #     "answer": qa_res.answer,
+        # }
+        # prev_hist = ans.chat_history if ans.chat_history else []
+        # prev_hist.append(chat_hist)
             
         return QA(
-            question=qa_res.question,
+            question=qa_res.follow_up_question,
             is_done=qa_res.is_done,
             count=ans.count+1,
-            chat_history=prev_hist
+            # chat_history=prev_hist
         )
         
     except Exception as e:
@@ -149,5 +150,5 @@ async def user_onboarding_qa(
 async def agent_mem_test(message: str, user_id: str, ):
         agent = get_memory_test_agent()
         response = agent.run(message=message, user_id=str(user_id))
-        logger.info(f"Agent response for user {user_id}: {response}")
+        # Remove duplicate logging as the agent library already logs this
         return {"response": response.content}

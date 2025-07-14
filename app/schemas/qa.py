@@ -12,4 +12,4 @@ class QA(BaseModel):
     question: str = Field(description="Question")
     is_done: bool = Field(description="Wheather QA is done or not")
     count: int = Field(description="QA Count Value", default_factory=0)
-    chat_history: List[Dict[str, str]] = Field(description="QA and answer history as {question: answer}", default_factory=list)
+    chat_history: Optional[List[Dict[str, str]]] = Field(description="QA and answer history as {question: answer}", default_factory=list)
