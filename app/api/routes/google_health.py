@@ -333,3 +333,58 @@ async def list_data_sources(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error listing data sources: {str(e)}"
         )
+
+@router.post("/data/fetch-and-save",
+    response_model=GoogleHealthDataList,
+    summary="Fetch and Save Health Data from Google Health API",
+    description="Fetches health data from Google Health API for the specified data types and time range. Checks if the service exists before saving data to the database to avoid duplicates.",
+    response_description="List of health data fetched and saved from Google Health API"
+)
+async def fetch_and_save_health_data(
+    data_request: GoogleHealthDataRequest,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    _: None = Depends(rate_limit_auth)
+):
+    """
+    Fetch health data from Google Health API and save it to the database.
+    First checks if the service exists before saving to avoid duplicates.
+    """
+    try:
+        # First check if the user has a valid Google Health token
+        token = db.query(GoogleHealthTokenModel).filter(
+            GoogleHealthTokenModel.user_id == current_user.id
+        ).first()
+        
+        if not token:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="No Google Health connection found for this user"
+            )
+            
+        # Fetch data from Google Health API
+        data = await fetch_google_health_data(
+            db=db,
+            user_id=current_user.id,
+            data_types=data_request.data_types,
+            start_time=data_request.start_date,
+            end_time=data_request.end_date
+        )
+        
+        # Note: The fetch_google_health_data function already handles duplicate data
+        # by checking if data exists before saving in the save_health_data function
+        
+        return {"items": data, "total": len(data)}
+    except GoogleHealthServiceError as e:
+        logger.error(f"Google Health data fetch-and-save error: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Google Health data fetch-and-save error: {str(e)}"
+        )
+    except Exception as e:
+        logger.error(f"Unexpected error in fetch_and_save_health_data: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Unexpected error: {str(e)}"
+        )
