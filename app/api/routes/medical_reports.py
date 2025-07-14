@@ -166,6 +166,7 @@ async def upload_file(
     files: Optional[List[UploadFile]] = File(default=None),
     serving_size: str = Form(description="serving size"),
     session_id: str = Form(description="agent session id"),
+    current_user: User = Depends(get_current_active_user),
 ):
     if files is not None and len(files) > 0:
         for file in files:
@@ -175,6 +176,7 @@ async def upload_file(
         # Fetch the user from the database
         nutrition_parser_agent = await parse_nutrition(
             session_id=session_id,
+            user_id=current_user.id,
             serving_size=serving_size,
             files=files)
         return nutrition_parser_agent

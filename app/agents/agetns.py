@@ -159,6 +159,7 @@ def nutrition_analysis_agent():
             """),
         storage=storage.GENERAL_SESSION_STORAGE,
         add_datetime_to_instructions=True,
-        add_history_to_messages=True,
+        num_history_runs=1,
+        num_history_sessions=1,
         response_model=nutrition.FoodNutritionList,
     )

@@ -1,17 +1,18 @@
-from fastapi import UploadFile, HTTPException, status
+from fastapi import UploadFile, HTTPException, status, File
 from app.core.logging import logger
 from app.schemas.nutrition import FoodNutritionList
 from typing import List
 from app.utils import image
 from app.agents.agetns import nutrition_analysis_agent
-from agno.media import Image
+from typing import Optional
 
 
 
 async def parse_nutrition(
     serving_size: str,
+    user_id: int,
     session_id: str,
-    files: List[UploadFile]) -> FoodNutritionList:
+    files: Optional[List[UploadFile]] = File(default=None)) -> FoodNutritionList:
     """
     Parse nutrition data from uploaded files.
 
@@ -26,8 +27,10 @@ async def parse_nutrition(
         # This should be replaced with actual parsing logic
         nutrition_parser_agent = nutrition_analysis_agent()
         if files is None or len(files) == 0:
-            response = nutrition_parser_agent.run(session_id=session_id)
-            return response.content
+            logger.info("No files provided for parsing nutrition")
+            logger.info(f"serving size: {serving_size}")
+            response = nutrition_parser_agent.run(message=serving_size, session_id=session_id)
+            return response
         images = []
         for file in files:
             filename = file.filename
