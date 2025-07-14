@@ -37,6 +37,15 @@ class Settings(BaseSettings):
     # Memory Configuration
     USER_MEMORY_TABLE: str = os.getenv("USER_MEMORY_TABLE", "user_memory")
     
+    # Langfuse Configuration
+    LANGFUSE_PUBLIC_KEY: Optional[str] = os.getenv("LANGFUSE_PUBLIC_KEY")
+    LANGFUSE_SECRET_KEY: Optional[str] = os.getenv("LANGFUSE_SECRET_KEY")
+    LANGFUSE_HOST: Optional[str] = os.getenv("LANGFUSE_HOST")
+    
+    # OpenTelemetry Configuration
+    OTEL_EXPORTER_OTLP_ENDPOINT: Optional[str] = os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT")
+    OTEL_EXPORTER_OTLP_HEADERS: Optional[str] = os.getenv("OTEL_EXPORTER_OTLP_HEADERS")
+    
     @property
     def is_production(self) -> bool:
         return self.ENVIRONMENT.lower() == "production"

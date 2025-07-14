@@ -1,10 +1,28 @@
+import base64
+import os
+
 from agno.agent import Agent
 from app.agents.models.model_provider import ModelProvider
 from app.constants import bedrock, prompts
 from app.agents.memory.memory import get_memory_with_manager
 
+from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
+from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace.export import SimpleSpanProcessor
+from opentelemetry import trace
+
 from textwrap import dedent
 
+# instrument_agno()
+LANGFUSE_AUTH = base64.b64encode(
+    f"{os.getenv('LANGFUSE_PUBLIC_KEY')}:{os.getenv('LANGFUSE_SECRET_KEY')}".encode()
+).decode()
+
+trace_provider = TracerProvider()
+trace_provider.add_span_processor(SimpleSpanProcessor(OTLPSpanExporter()))
+trace.set_tracer_provider(trace_provider)
+import openlit
+openlit.init(tracer=trace.get_tracer(__name__), disable_batch=True)
 
 bedrock_model = ModelProvider()
 
