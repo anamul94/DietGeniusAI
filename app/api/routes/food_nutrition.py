@@ -278,7 +278,7 @@ def update_nutrition_entry(
                 "user_id": current_user.id,
                 "username": current_user.username,
                 "entry_id": entry_id,
-                "fields_updated": list(update_data.dict(exclude_unset=True).keys()),
+                "fields_updated": list(update_data.model_dump(exclude_unset=True).keys()),
                 "client_ip": request.client.host if request.client else None,
             }
         )

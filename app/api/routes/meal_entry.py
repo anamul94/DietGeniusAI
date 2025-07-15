@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Request, Query
+from fastapi import APIRouter, Depends, HTTPException, status, Request, Query, File, UploadFile, Form
 from sqlalchemy.orm import Session
 from typing import Optional, List
 from datetime import datetime, date
@@ -7,24 +7,56 @@ from app.api.deps import get_db, get_current_user
 from app.models.user import User
 from app.models.food_nutrition import MealType
 from app.schemas.meal_entry import (
-    MealEntry, 
-    MealEntryCreate, 
+    MealEntry,
+    MealEntryCreate,
     MealEntryUpdate,
     MealEntryPagination,
     MealTypeCheck
 )
+from app.schemas.meal_types import MealTypesResponse, MealTypeInfo
+from app.schemas.nutrition import FoodNutritionResponse
 from app.services.meal_entry import (
-    create_meal_entry, 
-    get_meal_entry_by_id, 
+    create_meal_entry,
+    get_meal_entry_by_id,
     get_meal_entries,
     update_meal_entry,
     delete_meal_entry,
     check_meal_type_exists,
+    save_nutrition_data_to_meal_entry,
     MealEntryServiceError
 )
+from app.services.meal_types import get_meal_types_response
+from app.services.nutrition import parse_nutrition
 from app.core.logging import logger
 
 router = APIRouter()
+
+@router.get("/meal-types", response_model=MealTypesResponse)
+def get_meal_types():
+    """
+    Get all available meal type enum values
+    
+    Returns:
+        Structured response containing meal types with their values and labels
+    """
+    try:
+        response = get_meal_types_response()
+        
+        logger.info(
+            f"Retrieved meal type enum values",
+            extra={
+                "total_meal_types": response.total_count,
+                "meal_types": [mt.value for mt in response.meal_types]
+            }
+        )
+        
+        return response
+    except Exception as e:
+        logger.error(f"Error retrieving meal types: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Error retrieving meal types",
+        )
 
 @router.post("/", response_model=MealEntry, status_code=status.HTTP_201_CREATED)
 def create_new_meal_entry(
@@ -252,7 +284,7 @@ def update_meal_entry_by_id(
                 "user_id": current_user.id,
                 "username": current_user.username,
                 "entry_id": entry_id,
-                "fields_updated": list(update_data.dict(exclude_unset=True).keys()),
+                "fields_updated": list(update_data.model_dump(exclude_unset=True).keys()),
                 "client_ip": request.client.host if request.client else None,
             }
         )
@@ -343,4 +375,84 @@ def delete_meal_entry_by_id(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="An unexpected error occurred",
+        )
+
+@router.post("/food-nutrition",
+             status_code=status.HTTP_200_OK,
+             response_model=FoodNutritionResponse)
+async def upload_food_nutrition(
+    files: List[UploadFile] = File(...),
+    serving_size: str = Form(description="serving size"),
+    consumed_at: str = Form(description="consumed at"),
+    meal_type: str = Form(description="meal type"),
+    session_id: str = Form(description="agent session id"),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Upload food images and get nutrition information, then save to meal entries
+    """
+    # Validate file types
+    if files is not None and len(files) > 0:
+        for file in files:
+            if file.content_type not in ["image/jpeg", "image/png"]:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Invalid file type. Only JPEG and PNG images are allowed."
+                )
+    
+    try:
+        # Parse nutrition data from files
+        nutrition_result = await parse_nutrition(
+            session_id=session_id,
+            user_id=current_user.id,
+            serving_size=serving_size,
+            files=files
+        )
+        
+        # Convert to FoodNutritionResponse if needed
+        food_nutrition_response = None
+        if isinstance(nutrition_result, dict):
+            try:
+                food_nutrition_response = FoodNutritionResponse(**nutrition_result)
+            except Exception as e:
+                logger.warning(f"Error converting nutrition result to FoodNutritionResponse: {str(e)}")
+                food_nutrition_response = nutrition_result
+        else:
+            food_nutrition_response = nutrition_result
+        
+        # Save nutrition data to database using service
+        try:
+            save_nutrition_data_to_meal_entry(
+                db=db,
+                user_id=current_user.id,
+                meal_type=meal_type,
+                consumed_at=consumed_at,
+                nutrition_data=food_nutrition_response.data,
+                message=food_nutrition_response.message
+            )
+            
+            logger.info(
+                f"Successfully processed and saved food nutrition data",
+                extra={
+                    "user_id": current_user.id,
+                    "username": current_user.username,
+                    "meal_type": meal_type,
+                    "consumed_at": consumed_at,
+                    "food_count": len(food_nutrition_response.data) if food_nutrition_response.data else 0
+                }
+            )
+            
+        except Exception as e:
+            logger.error(f"Error saving nutrition data to database: {str(e)}", exc_info=True)
+            # Continue with the response even if saving to DB fails
+            # This ensures the user still gets the nutrition information
+        
+        return food_nutrition_response
+    
+    except Exception as e:
+        logger.error(f"Error processing food nutrition: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail="Failed to process food nutrition. Please try again later."
         )

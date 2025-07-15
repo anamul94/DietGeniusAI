@@ -60,7 +60,7 @@ def create_meal_entry(
     """
     try:
         # Convert FoodNutritionList to dict for JSON storage
-        foods_dict = meal_entry_data.foods.dict()
+        foods_dict = meal_entry_data.foods.model_dump()
         
         db_meal_entry = MealEntry(
             user_id=user_id,
@@ -208,7 +208,7 @@ def update_meal_entry(
         
         # Special handling for foods field
         if 'foods' in update_dict:
-            update_dict['foods'] = update_dict['foods'].dict()
+            update_dict['foods'] = update_dict['foods'].model_dump()
             
         for field, value in update_dict.items():
             setattr(db_entry, field, value)
@@ -274,3 +274,112 @@ def delete_meal_entry(db: Session, entry_id: int) -> bool:
         db.rollback()
         logger.error(f"Error deleting meal entry: {str(e)}")
         raise MealEntryServiceError(f"Error deleting meal entry: {str(e)}")
+
+def save_nutrition_data_to_meal_entry(
+    db: Session,
+    user_id: int,
+    meal_type: str,
+    consumed_at: str,
+    nutrition_data: list,
+    message: str = ""
+) -> Optional[MealEntry]:
+    """
+    Save nutrition data to meal entry table
+    
+    Args:
+        db: Database session
+        user_id: User ID
+        meal_type: Meal type as string
+        consumed_at: Consumed at datetime as string
+        nutrition_data: List of FoodNutrition objects from response
+        message: Message from food response
+        
+    Returns:
+        Created meal entry if successful, None if duplicate exists
+        
+    Raises:
+        MealEntryServiceError: If error occurs during save
+    """
+    try:
+        from datetime import datetime
+        
+        # Parse consumed_at string to datetime
+        consumed_at_dt = datetime.fromisoformat(consumed_at)
+        
+        # Convert meal_type string to MealType enum
+        meal_type_enum = MealType(meal_type.lower())
+        
+        # Check if entry already exists to avoid duplicates
+        exists, existing_entry = check_meal_type_exists(
+            db,
+            user_id,
+            meal_type_enum,
+            consumed_at_dt.date()
+        )
+        
+        if exists:
+            logger.info(
+                f"Nutrition data already exists for this meal and date, skipping save",
+                extra={
+                    "user_id": user_id,
+                    "meal_type": meal_type,
+                    "consumed_at": consumed_at,
+                    "existing_entry_id": existing_entry.id if existing_entry else None
+                }
+            )
+            return None
+        
+        # Convert FoodNutrition objects to dictionaries for JSON serialization
+        foods_dict_list = []
+        for food_item in nutrition_data:
+            if hasattr(food_item, 'model_dump'):
+                # If it's a Pydantic V2 model, use model_dump
+                foods_dict_list.append(food_item.model_dump())
+            elif hasattr(food_item, 'dict'):
+                # If it's a Pydantic V1 model, use dict (for backward compatibility)
+                foods_dict_list.append(food_item.dict())
+            elif isinstance(food_item, dict):
+                # If it's already a dict, use as is
+                foods_dict_list.append(food_item)
+            else:
+                # Fallback: convert to dict manually
+                foods_dict_list.append(dict(food_item))
+        
+        # Create foods data structure
+        foods_data = {
+            "foods": foods_dict_list,
+            "message": message
+        }
+        
+        # Create new meal entry
+        new_entry = MealEntry(
+            user_id=user_id,
+            meal_type=meal_type_enum,
+            foods=foods_data,
+            consumed_at=consumed_at_dt
+        )
+        
+        db.add(new_entry)
+        db.commit()
+        db.refresh(new_entry)
+        
+        logger.info(
+            f"Saved nutrition data to database",
+            extra={
+                "user_id": user_id,
+                "meal_type": meal_type,
+                "consumed_at": consumed_at,
+                "entry_id": new_entry.id
+            }
+        )
+        
+        return new_entry
+        
+    except ValueError as e:
+        logger.error(f"Invalid meal type or datetime format: {str(e)}")
+        raise MealEntryServiceError(f"Invalid meal type or datetime format: {str(e)}")
+        
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Error saving nutrition data to database: {str(e)}")
+        raise MealEntryServiceError(f"Error saving nutrition data to database: {str(e)}")

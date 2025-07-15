@@ -11,8 +11,6 @@ from app.db.base import get_db
 from app.utils.id_gen import generate_custom_id
 
 from app.schemas.qa import QA, QaAns
-from app.services.nutrition import parse_nutrition
-from app.schemas.nutrition import FoodNutritionResponse
 
 
 router = APIRouter()
@@ -162,39 +160,3 @@ async def generate_session_id(
         logger.error(f"Error generating session ID for user {current_user.id}: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail="Failed to generate session ID. Please try again later.")
     
-@router.post("/food-nutrition", 
-             status_code=status.HTTP_200_OK,
-             response_model=FoodNutritionResponse)
-async def upload_file(
-    files: List[UploadFile] = File(...),
-    serving_size: str = Form(description="serving size"),
-    session_id: str = Form(description="agent session id"),
-    current_user: User = Depends(get_current_active_user),
-):
-    if files is not None and len(files) > 0:
-        for file in files:
-            # print(file.filename)
-            if file.content_type not in ["image/jpeg", "image/png"]:
-                raise HTTPException(status_code=400, detail="Invalid file type. Only JPEG and PNG images are allowed.")
-    try:
-        # Fetch the user from the database
-        nutrition_result = await parse_nutrition(
-            session_id=session_id,
-            user_id=current_user.id,
-            serving_size=serving_size,
-            files=files)
-        
-        # If the result is already a dict, convert it to a FoodNutritionResponse
-        if isinstance(nutrition_result, dict):
-            try:
-                return FoodNutritionResponse(**nutrition_result)
-            except Exception as e:
-                logger.warning(f"Error converting nutrition result to FoodNutritionResponse: {str(e)}")
-                # Fall back to returning the raw result
-                return nutrition_result
-        else:
-            return nutrition_result
-    
-    except Exception as e:
-        logger.error(f"Error for parsing food nutrition value: {str(e)}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Failed to upload file. Please try again later.")

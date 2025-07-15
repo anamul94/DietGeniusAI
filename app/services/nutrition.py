@@ -42,14 +42,14 @@ async def parse_nutrition(
             logger.info(f"Processing file: {filename}")
             file_bytes = await file.read()
             image_to_process.append((file_bytes, filename))
-            saved_filepath = save_as_webp(file_bytes)
-            with open(saved_filepath, "rb") as img_file:
-                image_bytes = img_file.read()
-                image_value = Image(content=image_bytes, format="webp")
-            images.append(image_value)
-            logger.info(f"saved_filepath: {saved_filepath}")
+            # saved_filepath = save_as_webp(file_bytes)
+            # with open(saved_filepath, "rb") as img_file:
+            #     image_bytes = img_file.read()
+            #     image_value = Image(content=image_bytes, format="webp")
+            # images.append(image_value)
+            # logger.info(f"saved_filepath: {saved_filepath}")
             # base_64_image = image.convert_bytes_image_to_base64(file_bytes)
-            file_ext = filename.lower().split('.')[-1]
+            # file_ext = filename.lower().split('.')[-1]
             # image_value = {
             #     "format": file_ext,
             #     "source": {"bytes": file_bytes}
