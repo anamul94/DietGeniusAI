@@ -10,17 +10,221 @@ from app.schemas.daily_activity_summary import (
     DailyActivitySummaryList,
     DataObject
 )
+from app.schemas.ai_assessment_summary import (
+    AIAssessmentSummary,
+    AIAssessmentSummaryResponse
+)
 from app.services.daily_activity_summary import (
     process_daily_health_data_by_date,
     get_daily_activity_summaries,
-    fetch_and_process_daily_health_data
+    fetch_and_process_daily_health_data,
+    daily_activity_assessment_by_ai_nutritionis
+)
+from app.services.ai_assessment_summary import (
+    get_today_ai_assessment_summary,
+    get_ai_assessment_summaries_by_date_range,
+    get_ai_assessment_summary_by_date
 )
 from app.core.logging import logger
 
 router = APIRouter()
 
+@router.post("/generate-assessment", response_model=AIAssessmentSummaryResponse)
+async def generate_daily_assessment(
+    target_date: Optional[date] = Query(
+        default=None,
+        description="Target date for assessment (defaults to today)",
+        example="2025-07-15"
+    ),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Generate AI-based daily assessment for activity and nutrition data.
+    
+    This endpoint:
+    1. Fetches user's activity and food data for the specified date
+    2. Generates AI assessment using the nutritionist agent
+    3. Saves the assessment summary to the database
+    4. Returns the generated assessment
+    
+    **Example Response:**
+    ```json
+    {
+        "date_value": "2025-07-15",
+        "summary": "## Daily Health Assessment\n\n### Activity Summary\nYou achieved 8,500 steps today..."
+    }
+    ```
+    """
+    try:
+        result = await daily_activity_assessment_by_ai_nutritionis(
+            db=db,
+            user_id=current_user.id,
+            user_name=current_user.username,
+            target_date=target_date
+        )
+        
+        return AIAssessmentSummaryResponse(
+            date_value=result["date"],
+            summary=result["summary"]
+        )
+        
+    except Exception as e:
+        logger.error(f"Error generating daily assessment: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error generating daily assessment: {str(e)}"
+        )
 
-@router.post("/process-daily-data/{target_date}", response_model=List[DailyActivitySummary])
+
+@router.get("/today-assessment", response_model=Optional[AIAssessmentSummary])
+async def get_today_assessment(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Get today's AI assessment summary for the current user.
+
+    This endpoint fetches the user's today's assessment from the database.
+
+    **Example Response:**
+    ```json
+    {
+        "id": 1,
+        "user_id": 123,
+        "date_value": "2025-07-15",
+        "summary": "## Daily Health Assessment\n\n### Activity Summary\nYou achieved 8,500 steps today...",
+        "created_at": "2025-07-15T09:15:00Z",
+        "updated_at": "2025-07-15T18:30:00Z"
+    }
+    ```
+    """
+    try:
+        summary = get_today_ai_assessment_summary(db=db, user_id=current_user.id)
+        return summary
+        
+    except Exception as e:
+        logger.error(f"Error fetching today's assessment: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error fetching today's assessment: {str(e)}"
+        )
+
+
+@router.get("/assessment/{target_date}", response_model=Optional[AIAssessmentSummary])
+async def get_assessment_by_date(
+    target_date: date = Path(
+        ...,
+        description="Target date to get assessment for",
+        example="2025-07-15"
+    ),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Get AI assessment summary for a specific date.
+
+    **Example Response:**
+    ```json
+    {
+        "id": 1,
+        "user_id": 123,
+        "date_value": "2025-07-15",
+        "summary": "## Daily Health Assessment\n\n### Activity Summary\nYou achieved 8,500 steps today...",
+        "created_at": "2025-07-15T09:15:00Z",
+        "updated_at": "2025-07-15T18:30:00Z"
+    }
+    ```
+    """
+    try:
+        summary = get_ai_assessment_summary_by_date(
+            db=db,
+            user_id=current_user.id,
+            user_name=current_user.username,
+            target_date=target_date
+        )
+        return summary
+        
+    except Exception as e:
+        logger.error(f"Error fetching assessment for {target_date}: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error fetching assessment: {str(e)}"
+        )
+
+
+@router.get("/assessments", response_model=List[AIAssessmentSummary])
+async def get_assessments_by_date_range(
+    start_date: date = Query(
+        ...,
+        description="Start date of the range",
+        example="2025-07-01"
+    ),
+    end_date: date = Query(
+        ...,
+        description="End date of the range",
+        example="2025-07-31"
+    ),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Get AI assessment summaries for a date range.
+    
+    **Query Parameters:**
+    - `start_date`: Start date of the range (e.g., "2025-07-01")
+    - `end_date`: End date of the range (e.g., "2025-07-31")
+    
+    **Example Usage:**
+    - Get assessments for July: `/assessments?start_date=2025-07-01&end_date=2025-07-31`
+    - Get recent week: `/assessments?start_date=2025-07-08&end_date=2025-07-15`
+    
+    **Example Response:**
+    ```json
+    [
+        {
+            "id": 1,
+            "user_id": 123,
+            "date_value": "2025-07-15",
+            "summary": "## Daily Health Assessment\n\n### Activity Summary\nYou achieved 8,500 steps today...",
+            "created_at": "2025-07-15T09:15:00Z",
+            "updated_at": "2025-07-15T18:30:00Z"
+        },
+        {
+            "id": 2,
+            "user_id": 123,
+            "date_value": "2025-07-14",
+            "summary": "## Daily Health Assessment\n\n### Activity Summary\nYou achieved 7,200 steps today...",
+            "created_at": "2025-07-14T09:15:00Z",
+            "updated_at": null
+        }
+    ]
+    ```
+    """
+    try:
+        summaries = get_ai_assessment_summaries_by_date_range(
+            db=db,
+            user_id=current_user.id,
+            start_date=start_date,
+            end_date=end_date
+        )
+        
+        return summaries
+        
+    except Exception as e:
+        logger.error(f"Error fetching assessments for date range {start_date} to {end_date}: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error fetching assessments: {str(e)}"
+        )
+
+
+
+
+
+
+
+@router.post("/process-daily-activity-data/{target_date}", response_model=List[DailyActivitySummary])
 async def process_daily_health_data(
     target_date: date = Path(
         ...,

@@ -383,3 +383,41 @@ def save_nutrition_data_to_meal_entry(
         db.rollback()
         logger.error(f"Error saving nutrition data to database: {str(e)}")
         raise MealEntryServiceError(f"Error saving nutrition data to database: {str(e)}")
+
+
+def get_meal_entries_by_date(
+    db: Session,
+    user_id: int,
+    target_date: date
+) -> List[MealEntry]:
+    """
+    Get all meal entries for a specific user and date
+    
+    Args:
+        db: Database session
+        user_id: User ID
+        target_date: Target date to get meal data for
+        
+    Returns:
+        List[MealEntry]: List of meal entries for the date
+    """
+    try:
+        # Convert date to start and end of day for filtering
+        start_of_day = datetime.combine(target_date, datetime.min.time())
+        end_of_day = datetime.combine(target_date, datetime.max.time())
+        
+        meal_entries = db.query(MealEntry).filter(
+            MealEntry.user_id == user_id,
+            MealEntry.consumed_at >= start_of_day,
+            MealEntry.consumed_at <= end_of_day
+        ).order_by(MealEntry.consumed_at).all()
+        
+        logger.info(
+            f"Retrieved {len(meal_entries)} meal entries for user {user_id} on {target_date}"
+        )
+        
+        return meal_entries
+        
+    except Exception as e:
+        logger.error(f"Error getting meal entries by date: {str(e)}")
+        raise MealEntryServiceError(f"Error getting meal entries by date: {str(e)}")

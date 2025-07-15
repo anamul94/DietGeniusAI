@@ -8,7 +8,7 @@ from typing import Optional
 from agno.media import Image
 from app.utils.image import save_as_webp 
 from app.services.bedrock_service import BedrockService
-from app.constants.prompts import FOOD_NAME_EXTRACTION_INSTRUCTION
+from app.constants.prompts.prompts import FOOD_NAME_EXTRACTION_INSTRUCTION
 
 
 

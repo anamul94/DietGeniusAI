@@ -41,3 +41,4 @@ class User(Base):
     google_health_data = relationship("GoogleHealthData", back_populates="user")
     meal_entries = relationship("MealEntry", back_populates="user")
     daily_activity_summaries = relationship("DailyActivitySummary", back_populates="user")
+    ai_assessment_summaries = relationship("AIAssessmentSummary", back_populates="user")

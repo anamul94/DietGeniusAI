@@ -1,12 +1,12 @@
-import base64
 import os
 from textwrap import dedent
 
 
 from agno.agent import Agent
 from app.agents.models.model_provider import ModelProvider
-from app.constants import bedrock, prompts
+from app.constants import bedrock
 from app.agents.memory.memory import get_memory_with_manager
+from app.constants.prompts import prompts, daily_summary
 from app.schemas.agnent_qa import AgentQA
 from app.schemas.nutrition import FoodNutritionResponse
 from app.agents.memory import storage
@@ -19,9 +19,7 @@ from opentelemetry import trace
 
 
 # instrument_agno()
-LANGFUSE_AUTH = base64.b64encode(
-    f"{os.getenv('LANGFUSE_PUBLIC_KEY')}:{os.getenv('LANGFUSE_SECRET_KEY')}".encode()
-).decode()
+# LANGFUSE_AUTH is now set directly in .env file as base64 encoded value
 
 trace_provider = TracerProvider()
 trace_provider.add_span_processor(SimpleSpanProcessor(OTLPSpanExporter()))
@@ -133,4 +131,29 @@ def nutrition_analysis_agent():
         storage=storage.GENERAL_SESSION_STORAGE,
         add_history_to_messages=False,
         response_model=FoodNutritionResponse,
+    )
+    
+def assesment_agent():
+    memory = get_memory_with_manager(
+        memory_model=bedrock_model.aws_model(id=bedrock.NOVA_PRO),
+        memory_manager_model=bedrock_model.aws_model(id=bedrock.NOVA_PRO),
+        additional_instructions=daily_summary.memory_update_instruction_for_daily_summary
+    )
+    return Agent(
+        name="Nutritionist",
+        model=bedrock_model.aws_model(id=bedrock.ANTHROPIC_SONNET_3),
+        reasoning=False,
+        goal="Assess the user's health and provide recommendations",
+        instructions=daily_summary.daily_assessment_instruction,
+        storage=storage.USER_DAILY_LOG_SESSION_STORAGE,
+        memory=memory,
+        system_message=dedent("""\
+            You are a licensed nutritionist and dietitian.
+            Always review user's prior memory and log to provide insightful analysis.  
+            Maintain a professional, human tone — avoid sounding robotic or overly artificial.  
+            If no prior data exists, generate a well-tailored initial analysis using available user profile information and offer a sample daily meal plan, hydration tips, and basic activity guidance.
+    """), 
+        enable_agentic_memory=True,
+        add_datetime_to_instructions=True,
+        markdown=True,
     )

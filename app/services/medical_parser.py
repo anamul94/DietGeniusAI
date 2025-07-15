@@ -5,7 +5,7 @@ from typing import Dict, List, Any, Optional
 from fastapi import UploadFile
 from typing import List
 from app.services.bedrock_service import BedrockService
-from app.constants.prompts import MEDICAL_REPORT_PARSER_PROMPT
+from app.constants.prompts.prompts import MEDICAL_REPORT_PARSER_PROMPT
 from app.core.logging import logger
 class MedicalReportParserService:
     def __init__(self):
