@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card'
-import { Button } from '@/components/ui/Button'
+import { Button } from '@/components/ui/button'
 import { apiCall } from '@/lib/utils'
 import { User, FileText, Activity, Settings, LogOut } from 'lucide-react'
 import GoogleHealthLogin from '@/components/auth/GoogleHealthLogin'

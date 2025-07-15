@@ -1,6 +1,6 @@
 'use client'
 
-import { Button } from '@/components/ui/Button'
+import { Button } from '@/components/ui/button'
 import { API_BASE_URL } from '@/lib/utils'
 
 export default function GoogleLogin() {

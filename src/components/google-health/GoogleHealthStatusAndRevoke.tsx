@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/Card";
-import { Button } from "@/components/ui/Button";
+import { Button } from '@/components/ui/button'
 
 const GoogleHealthStatusAndRevoke = () => {
   const [status, setStatus] = useState<any>(null);

@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card'
-import { Button } from '@/components/ui/Button'
+import { Button } from '@/components/ui/button'
 import { apiCall } from '@/lib/utils'
 import { Activity, Brain, Loader2 } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'

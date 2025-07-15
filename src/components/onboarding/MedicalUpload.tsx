@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef } from 'react'
-import { Button } from '@/components/ui/Button'
+import { Button } from '@/components/ui/button'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card'
 import { apiCall } from '@/lib/utils'
 import { Upload, X, FileText, AlertCircle } from 'lucide-react'

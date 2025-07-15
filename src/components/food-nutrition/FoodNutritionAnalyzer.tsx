@@ -1,7 +1,13 @@
 'use client'
 
-import { useState, useRef } from 'react'
-import { Button } from '@/components/ui/Button'
+import { useState, useRef, useEffect } from 'react'
+import { format } from 'date-fns'
+import { Calendar as CalendarIcon } from 'lucide-react'
+import { Calendar } from '@/components/ui/calendar'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { cn } from '@/lib/utils'
+import { Button } from '@/components/ui/button'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card'
 import { Upload, X, FileText, AlertCircle } from 'lucide-react'
 
@@ -16,6 +22,33 @@ export default function FoodNutritionAnalyzer({ sessionId }: FoodNutritionAnalyz
   const [nutritionResult, setNutritionResult] = useState<any>(null)
   const [dragActive, setDragActive] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const [mealType, setMealType] = useState<string>('')
+  const [consumedAt, setConsumedAt] = useState<Date>(new Date())
+  const [consumedAtTime, setConsumedAtTime] = useState<string>(format(new Date(), 'HH:mm'))
+  const [mealTypes, setMealTypes] = useState<{ value: string; label: string }[]>([])
+  const [loadingMealTypes, setLoadingMealTypes] = useState(true)
+
+  useEffect(() => {
+    const fetchMealTypes = async () => {
+      try {
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/meal-entries/meal-types`, {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem('access_token')}`
+          }
+        })
+        if (!response.ok) {
+          throw new Error('Failed to fetch meal types')
+        }
+        const data = await response.json()
+        setMealTypes(data.meal_types)
+      } catch (error) {
+        console.error('Error fetching meal types:', error)
+      } finally {
+        setLoadingMealTypes(false)
+      }
+    }
+    fetchMealTypes()
+  }, [])
 
   const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp']
   const maxFiles = 3
@@ -81,9 +114,16 @@ export default function FoodNutritionAnalyzer({ sessionId }: FoodNutritionAnalyz
       })
       formData.append('serving_size', servingSize)
       formData.append('session_id', sessionId)
+      formData.append('meal_type', mealType)
+      if (consumedAt && consumedAtTime) {
+        const [hours, minutes] = consumedAtTime.split(':').map(Number)
+        const combinedDateTime = new Date(consumedAt)
+        combinedDateTime.setHours(hours, minutes, 0, 0)
+        formData.append('consumed_at', combinedDateTime.toISOString())
+      }
 
       // Call food nutrition API
-      const nutritionResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/medical-reports/food-nutrition`, {
+      const nutritionResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/meal-entries/food-nutrition`, {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${localStorage.getItem('access_token')}`
@@ -97,7 +137,7 @@ export default function FoodNutritionAnalyzer({ sessionId }: FoodNutritionAnalyz
 
       const nutritionData = await nutritionResponse.json()
       console.log('Food Nutrition Data:', nutritionData)
-      setNutritionResult(nutritionData)
+      setNutritionResult(nutritionData.data[0]) // Access the single food object from the array
       setFiles([]) // Clear files after successful upload
       setServingSize('') // Clear serving size after successful upload
 
@@ -115,23 +155,63 @@ export default function FoodNutritionAnalyzer({ sessionId }: FoodNutritionAnalyz
     return (
       <div className="mt-6 space-y-4">
         <h3 className="text-xl font-bold text-gray-900">Nutrition Analysis Results:</h3>
-        {nutritionResult.foods && nutritionResult.foods.length > 0 ? (
-          nutritionResult.foods.map((food: any, index: number) => (
-            <Card key={index} className="p-4 border border-gray-200 rounded-lg shadow-sm">
-              <h4 className="font-bold text-xl text-gray-900 mb-2">{food.food_name}</h4>
-              <p className="text-sm text-gray-600 mb-4">Serving Size: {food.serving_size}</p>
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-x-4 gap-y-2 text-sm">
-                {Object.entries(food.nutrition).map(([key, value]: [string, any]) => (
-                  value && value.value !== undefined && value.value !== null && (
-                    <div key={key} className="flex justify-between items-center border-b border-gray-100 pb-1">
-                      <span className="text-gray-700 capitalize">{key.replace(/_/g, ' ')}:</span>
-                      <span className="font-medium text-gray-800">{value.value.toFixed(2)} {value.unit}</span>
-                    </div>
-                  )
-                ))}
+        {nutritionResult ? (
+            <Card className="p-4 border border-gray-200 rounded-lg shadow-sm">
+              <h4 className="font-bold text-xl text-gray-900 mb-2">{nutritionResult.food_name}</h4>
+              <p className="text-sm text-gray-600 mb-4">Serving Size: {nutritionResult.serving_size}</p>
+
+              <div className="space-y-4">
+                {/* Key Nutrients */}
+                <div>
+                  <h5 className="font-semibold text-md text-gray-800 mb-2">Key Nutrients:</h5>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2 text-sm">
+                    {Object.entries(nutritionResult.nutrition).filter(([key]) => ['calories', 'protein', 'carbs', 'fat', 'fiber', 'sugar', 'sodium', 'cholesterol'].includes(key)).map(([key, value]: [string, any]) => (
+                      value && value.value !== undefined && value.value !== null && (
+                        <div key={key} className="flex justify-between items-center border-b border-gray-100 pb-1">
+                          <span className="text-gray-700 capitalize">{key.replace(/_/g, ' ')}:</span>
+                          <span className="font-medium text-gray-800">{value.value.toFixed(2)} {value.unit}</span>
+                        </div>
+                      )
+                    ))}
+                  </div>
+                </div>
+
+                {/* Fat Breakdown */}
+                <div>
+                  <h5 className="font-semibold text-md text-gray-800 mb-2">Fat Breakdown:</h5>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2 text-sm">
+                    {Object.entries(nutritionResult.nutrition).filter(([key]) => ['saturated_fat', 'monounsaturated_fat', 'polyunsaturated_fat', 'omega_3', 'omega_6'].includes(key)).map(([key, value]: [string, any]) => (
+                      value && value.value !== undefined && value.value !== null && (
+                        <div key={key} className="flex justify-between items-center border-b border-gray-100 pb-1">
+                          <span className="text-gray-700 capitalize">{key.replace(/_/g, ' ')}:</span>
+                          <span className="font-medium text-gray-800">{value.value.toFixed(2)} {value.unit}</span>
+                        </div>
+                      )
+                    ))}
+                  </div>
+                </div>
+
+                {/* Other Nutrients (Collapsible) */}
+                <details className="group">
+                  <summary className="flex justify-between items-center cursor-pointer text-sm font-medium text-green-600 hover:text-green-700">
+                    <span>Show All Nutrients</span>
+                    <svg className="w-4 h-4 transition-transform group-open:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
+                  </summary>
+                  <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-x-4 gap-y-2 text-sm">
+                    {Object.entries(nutritionResult.nutrition).filter(([key]) => 
+                      !['calories', 'protein', 'carbs', 'fat', 'fiber', 'sugar', 'sodium', 'cholesterol', 'saturated_fat', 'monounsaturated_fat', 'polyunsaturated_fat', 'omega_3', 'omega_6'].includes(key)
+                    ).map(([key, value]: [string, any]) => (
+                      value && value.value !== undefined && value.value !== null && (
+                        <div key={key} className="flex justify-between items-center border-b border-gray-100 pb-1">
+                          <span className="text-gray-700 capitalize">{key.replace(/_/g, ' ')}:</span>
+                          <span className="font-medium text-gray-800">{value.value.toFixed(2)} {value.unit}</span>
+                        </div>
+                      )
+                    ))}
+                  </div>
+                </details>
               </div>
             </Card>
-          ))
         ) : (
           <p className="text-gray-600">No food items detected or nutrition data available.</p>
         )}
@@ -202,6 +282,67 @@ export default function FoodNutritionAnalyzer({ sessionId }: FoodNutritionAnalyz
                     onChange={(e) => setServingSize(e.target.value)}
                   />
                 </div>
+                <div className="w-full mb-4">
+                  <label htmlFor="meal-type" className="block text-sm font-medium text-gray-700 text-left mb-1">
+                    Meal Type
+                  </label>
+                  <Select onValueChange={setMealType} value={mealType}>
+                    <SelectTrigger className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500 sm:text-sm">
+                      <SelectValue placeholder="Select a meal type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {loadingMealTypes ? (
+                        <SelectItem value="loading" disabled>Loading...</SelectItem>
+                      ) : (
+                        mealTypes.map((type) => (
+                          <SelectItem key={type.value} value={type.value}>
+                            {type.label}
+                          </SelectItem>
+                        ))
+                      )}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="w-full mb-4">
+                  <label htmlFor="consumed-at" className="block text-sm font-medium text-gray-700 text-left mb-1">
+                    Consumed Date
+                  </label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant={"outline"}
+                        className={cn(
+                          "w-full justify-start text-left font-normal",
+                          !consumedAt && "text-muted-foreground"
+                        )}
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {consumedAt ? format(consumedAt, "PPP") : <span>Pick a date</span>}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0">
+                      <Calendar
+                        mode="single"
+                        selected={consumedAt}
+                        onSelect={setConsumedAt}
+                        initialFocus
+                        required
+                      />
+                    </PopoverContent>
+                  </Popover>
+                </div>
+                <div className="w-full mb-4">
+                  <label htmlFor="consumed-at-time" className="block text-sm font-medium text-gray-700 text-left mb-1">
+                    Consumed Time
+                  </label>
+                  <input
+                    type="time"
+                    id="consumed-at-time"
+                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500 sm:text-sm"
+                    value={consumedAtTime}
+                    onChange={(e) => setConsumedAtTime(e.target.value)}
+                  />
+                </div>
                 <Button
                   variant="outline"
                   onClick={() => fileInputRef.current?.click()}
@@ -248,7 +389,7 @@ export default function FoodNutritionAnalyzer({ sessionId }: FoodNutritionAnalyz
                 <Button
                   onClick={handleUpload}
                   loading={uploading}
-                  disabled={files.length === 0 || !servingSize}
+                  disabled={uploading || files.length === 0 || !servingSize || !mealType || !consumedAt || !consumedAtTime}
                 >
                   Analyze Food
                 </Button>

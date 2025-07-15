@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { Button } from '@/components/ui/Button'
+import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/Card'
 import { apiCall } from '@/lib/utils'
 import { Send, Bot, User, Mic, StopCircle, Play, Pause } from 'lucide-react'
