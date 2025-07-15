@@ -1,7 +1,14 @@
-'use client'
+import dynamic from "next/dynamic";
+import { Suspense } from "react";
 
-import MealPlanGenerator from "@/components/meal-plan/MealPlanGenerator";
+const MealPlanClientPage = dynamic(() => import("./MealPlanClientPage"), {
+  ssr: false,
+});
 
 export default function MealPlanPage() {
-  return <MealPlanGenerator />;
+  return (
+    <Suspense fallback={<div>Loading meal plan...</div>}>
+      <MealPlanClientPage />
+    </Suspense>
+  );
 }

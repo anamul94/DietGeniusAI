@@ -17,7 +17,11 @@ interface MealPlan {
   updated_at: string;
 }
 
-const MealPlanGenerator = () => {
+interface MealPlanGeneratorProps {
+  mode?: "generate" | "latest";
+}
+
+const MealPlanGenerator = ({ mode }: MealPlanGeneratorProps) => {
   const [mealPlan, setMealPlan] = useState<MealPlan | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -50,6 +54,16 @@ const MealPlanGenerator = () => {
     };
     fetchSessionId();
   }, []);
+
+  useEffect(() => {
+    if (sessionId) {
+      if (mode === "generate") {
+        generateMealPlan();
+      } else if (mode === "latest") {
+        fetchLatestMealPlan();
+      }
+    }
+  }, [sessionId, mode]);
 
   const generateMealPlan = async () => {
     setLoading(true);

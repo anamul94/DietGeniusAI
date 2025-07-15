@@ -175,6 +175,45 @@ export default function DashboardPage() {
             </CardContent>
           </Card>
 
+          {/* Food Nutrition Card */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <FileText className="w-5 h-5 text-primary" />
+                Food Nutrition Analysis
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-muted-foreground mb-4">
+                Analyze your food intake for detailed nutritional insights.
+              </p>
+              <Button variant="outline" size="sm" className="w-full" onClick={() => router.push('/food-nutrition-analysis')}>
+                Analyze Food Nutrition
+              </Button>
+            </CardContent>
+          </Card>
+
+          {/* Meal Plan Card */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Brain className="w-5 h-5 text-primary" />
+                Meal Plan
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-muted-foreground mb-4">
+                Generate and view your personalized AI-powered meal plans.
+              </p>
+              <Button variant="outline" size="sm" className="w-full mb-2" onClick={() => router.push('/meal-plan?mode=generate')}>
+                Generate New Meal Plan
+              </Button>
+              <Button variant="outline" size="sm" className="w-full" onClick={() => router.push('/meal-plan?mode=latest')}>
+                View Latest Meal Plan
+              </Button>
+            </CardContent>
+          </Card>
+
           {/* Google Health Login Card */}
           <Card>
             <CardHeader>
@@ -214,42 +253,6 @@ export default function DashboardPage() {
             </CardHeader>
             <CardContent>
               <GoogleHealthStatusAndRevoke />
-            </CardContent>
-          </Card>
-
-          {/* Food Nutrition Card */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <FileText className="w-5 h-5 text-primary" />
-                Food Nutrition Analysis
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm text-muted-foreground mb-4">
-                Analyze your food intake for detailed nutritional insights.
-              </p>
-              <Button variant="outline" size="sm" className="w-full" onClick={() => router.push('/food-nutrition-analysis')}>
-                Analyze Food Nutrition
-              </Button>
-            </CardContent>
-          </Card>
-
-          {/* Meal Plan Card */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Brain className="w-5 h-5 text-primary" />
-                Meal Plan
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm text-muted-foreground mb-4">
-                Generate and view your personalized AI-powered meal plans.
-              </p>
-              <Button variant="outline" size="sm" className="w-full" onClick={() => router.push('/meal-plan')}>
-                Generate Meal Plan
-              </Button>
             </CardContent>
           </Card>
         </div>
