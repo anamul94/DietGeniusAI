@@ -7,6 +7,7 @@ import { apiCall } from "@/lib/utils";
 import { Brain, Loader2, ArrowLeft } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 
 interface MealPlan {
   meal_plan: string;
@@ -152,15 +153,40 @@ const MealPlanGenerator = ({ mode }: MealPlanGeneratorProps) => {
               </div>
             )}
 
-            {mealPlan ? (
+            {loading ? (
+              <div className="relative h-64 bg-gray-100 rounded-lg overflow-hidden">
+                <Image
+                  src="/nutritionist-preparing-meal-plan.jpg"
+                  alt="Nutritionist preparing meal plan"
+                  layout="fill"
+                  objectFit="cover"
+                  className="opacity-50"
+                />
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <div className="bg-white bg-opacity-75 p-6 rounded-lg text-center">
+                    <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-primary" />
+                    <p className="text-lg font-semibold text-gray-800">
+                      Our nutritionist is carefully preparing your personalized meal plan...
+                    </p>
+                    <p className="text-sm text-gray-600 mt-2">
+                      This may take a few moments. Please wait.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            ) : mealPlan ? (
               <div className="prose max-w-none">
                 <h3 className="text-xl font-semibold text-gray-900 mb-2">
                   Meal Plan for {mealPlan.plan_date}
                 </h3>
-                <ReactMarkdown>{mealPlan.meal_plan}</ReactMarkdown>
+                {typeof mealPlan.meal_plan === 'string' ? (
+                  <ReactMarkdown>{mealPlan.meal_plan}</ReactMarkdown>
+                ) : (
+                  <p className="text-red-500">Error: Invalid meal plan data</p>
+                )}
               </div>
             ) : (
-              !loading && !error && (
+              !error && (
                 <p className="text-gray-500 text-center py-8">
                   Click "Generate New Meal Plan" to get your personalized diet plan.
                 </p>

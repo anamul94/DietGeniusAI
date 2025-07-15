@@ -1,10 +1,11 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import ReportUpload from '@/components/reports/ReportUpload'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card'
 import { Button } from '@/components/ui/button'
 import { apiCall, formatDate } from '@/lib/utils'
-import { FileText, ChevronLeft, ChevronRight, ArrowLeft } from 'lucide-react'
+import { FileText, ChevronLeft, ChevronRight, ArrowLeft, Upload } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { useRouter } from 'next/navigation'
@@ -23,6 +24,7 @@ export default function ReportsPage() {
   const [loading, setLoading] = useState(true)
   const [page, setPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
+  const [showUpload, setShowUpload] = useState(false)
   const router = useRouter()
 
   const fetchReports = async (pageNum: number) => {
@@ -74,9 +76,15 @@ export default function ReportsPage() {
             Back to Dashboard
           </Button>
         </div>
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Medical Reports</h1>
-          <p className="text-gray-600">View and manage your uploaded medical reports</p>
+        <div className="flex justify-between items-center mb-8">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900 mb-2">Medical Reports</h1>
+            <p className="text-gray-600">View and manage your uploaded medical reports</p>
+          </div>
+          <Button onClick={() => setShowUpload(true)}>
+            <Upload className="w-4 h-4 mr-2" />
+            Upload Report
+          </Button>
         </div>
 
         <Card>
@@ -131,6 +139,15 @@ export default function ReportsPage() {
           </CardContent>
         </Card>
       </div>
+      {showUpload && (
+        <ReportUpload
+          onUploadComplete={() => {
+            setShowUpload(false)
+            fetchReports(page)
+          }}
+          onClose={() => setShowUpload(false)}
+        />
+      )}
     </div>
   )
 }
