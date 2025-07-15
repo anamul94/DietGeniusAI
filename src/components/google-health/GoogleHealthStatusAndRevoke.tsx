@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/Card";
 import { Button } from '@/components/ui/button'
 
 const GoogleHealthStatusAndRevoke = () => {
@@ -86,30 +85,25 @@ const GoogleHealthStatusAndRevoke = () => {
   }
 
   return (
-    <Card className="p-4 border rounded-lg shadow-sm mt-4">
-      <CardHeader>
-        <CardTitle className="text-lg font-semibold mb-2">Google Health Connection Status</CardTitle>
-      </CardHeader>
-      <CardContent>
-        {status && status.connected ? (
-          <div className="space-y-2">
-            <p><strong>Status:</strong> Connected</p>
-            <p><strong>Expires At:</strong> {new Date(status.expires_at).toLocaleString()}</p>
-            <p><strong>Scopes:</strong></p>
-            <ul className="list-disc list-inside ml-4">
-              {status.scopes.map((scope: string, index: number) => (
-                <li key={index}>{scope}</li>
-              ))}
-            </ul>
-            <Button onClick={handleRevoke} disabled={revoking} className="mt-4 bg-red-500 hover:bg-red-600 text-white">
-              {revoking ? "Revoking..." : "Revoke Permissions"}
-            </Button>
-          </div>
-        ) : (
-          <p>Not connected to Google Health.</p>
-        )}
-      </CardContent>
-    </Card>
+    <div className="space-y-4 p-2">
+      {status && status.connected ? (
+        <div className="space-y-2">
+          <p className="text-sm"><strong className="font-medium">Status:</strong> <span className="text-green-600">Connected</span></p>
+          <p className="text-sm"><strong className="font-medium">Expires At:</strong> {new Date(status.expires_at).toLocaleString()}</p>
+          <p className="text-sm font-medium">Scopes:</p>
+          <ul className="list-disc list-inside ml-4 text-sm break-words">
+            {status.scopes.map((scope: string, index: number) => (
+              <li key={index}>{scope}</li>
+            ))}
+          </ul>
+          <Button onClick={handleRevoke} disabled={revoking} className="mt-4 w-full bg-red-500 hover:bg-red-600 text-white">
+            {revoking ? "Revoking..." : "Revoke Permissions"}
+          </Button>
+        </div>
+      ) : (
+        <p className="text-sm text-muted-foreground">Not connected to Google Health.</p>
+      )}
+    </div>
   );
 };
 

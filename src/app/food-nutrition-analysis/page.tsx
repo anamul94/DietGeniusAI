@@ -4,7 +4,8 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import FoodNutritionAnalyzer from '@/components/food-nutrition/FoodNutritionAnalyzer'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card'
-import { AlertCircle } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { AlertCircle, ArrowLeft } from 'lucide-react'
 
 export default function FoodNutritionAnalysisPage() {
   const [sessionId, setSessionId] = useState<string | null>(null)
@@ -86,6 +87,12 @@ export default function FoodNutritionAnalysisPage() {
   return (
     <div className="min-h-screen bg-gray-50 py-8">
       <div className="container max-w-2xl">
+        <div className="mb-8">
+          <Button variant="outline" onClick={() => router.back()}>
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Back to Dashboard
+          </Button>
+        </div>
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold text-gray-900 mb-2">Food Nutrition Analysis</h1>
           <p className="text-gray-600">Upload images of your food for detailed nutritional insights.</p>

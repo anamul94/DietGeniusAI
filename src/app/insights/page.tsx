@@ -4,20 +4,23 @@ import { useState } from 'react'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card'
 import { Button } from '@/components/ui/button'
 import { apiCall } from '@/lib/utils'
-import { Activity, Brain, Loader2 } from 'lucide-react'
+import { Activity, Brain, Loader2, ArrowLeft } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
+import { useRouter } from 'next/navigation'
 
 export default function InsightsPage() {
   const [insight, setInsight] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const router = useRouter()
 
   const fetchInsight = async () => {
     setLoading(true)
     setError(null)
     try {
-      const response = await apiCall('/api/medical-reports/memory-test?message=generate summary', { method: 'POST' })
-      setInsight(response.response)
+      const currentDate = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+      const response = await apiCall(`/api/daily-activity/generate-assessment?target_date=${currentDate}`, { method: 'POST' });
+      setInsight(response.summary)
     } catch (err) {
       console.error('Failed to fetch insight:', err)
       setError('Failed to load insights. Please try again.')
@@ -37,7 +40,7 @@ export default function InsightsPage() {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <Activity className="w-5 h-5 text-orange-500" />
+              <Activity className="w-5 h-5 text-primary" />
               Your Insights
             </CardTitle>
           </CardHeader>
@@ -73,6 +76,12 @@ export default function InsightsPage() {
                 <p className="text-gray-500 text-center py-8">Click "Generate Insights" to get your AI-powered health summary.</p>
               )
             )}
+            <div className="mt-6">
+              <Button variant="outline" onClick={() => router.back()}>
+                <ArrowLeft className="mr-2 h-4 w-4" />
+                Back to Dashboard
+              </Button>
+            </div>
           </CardContent>
         </Card>
       </div>

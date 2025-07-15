@@ -2,6 +2,10 @@
 
 import { useState } from "react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/Card";
+import { Button } from "@/components/ui/button"; // Import the Button component
+import { Input } from "@/components/ui/input"; // Import the Input component
+import { Label } from "@/components/ui/label"; // Import the Label component
+import { Checkbox } from "@/components/ui/checkbox"; // Assuming you have a Checkbox component
 
 const GoogleHealthDataFetcher = () => {
   const [dataTypes, setDataTypes] = useState<string[]>(["steps"]);
@@ -11,10 +15,9 @@ const GoogleHealthDataFetcher = () => {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  const handleCheckboxChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { value, checked } = e.target;
+  const handleCheckboxChange = (type: string, checked: boolean) => {
     setDataTypes((prev) =>
-      checked ? [...prev, value] : prev.filter((type) => type !== value)
+      checked ? [...prev, type] : prev.filter((t) => t !== type)
     );
   };
 
@@ -62,52 +65,50 @@ const GoogleHealthDataFetcher = () => {
   };
 
   return (
-    <div className="p-4 border rounded-lg shadow-sm">
-      <h3 className="text-lg font-semibold mb-4">Fetch Google Health Data</h3>
-      <div className="mb-4">
-        <label className="block text-sm font-medium text-gray-700">Data Types:</label>
-        <div className="mt-1 grid grid-cols-2 gap-2">
+    <div className="space-y-4">
+      <h3 className="text-lg font-semibold">Fetch Google Health Data</h3>
+      <div>
+        <Label className="mb-2 block">Data Types:</Label>
+        <div className="grid grid-cols-2 gap-2">
           {[ "steps", "heart_rate", "sleep", "weight", "nutrition" ].map((type) => (
-            <label key={type} className="inline-flex items-center">
-              <input
-                type="checkbox"
-                value={type}
+            <div key={type} className="flex items-center space-x-2">
+              <Checkbox
+                id={type}
                 checked={dataTypes.includes(type)}
-                onChange={handleCheckboxChange}
-                className="form-checkbox"
+                onCheckedChange={(checked: boolean) => handleCheckboxChange(type, checked)}
               />
-              <span className="ml-2 text-gray-700">{type.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase())}</span>
-            </label>
+              <Label htmlFor={type}>
+                {type.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase())}
+              </Label>
+            </div>
           ))}
         </div>
       </div>
-      <div className="mb-4">
-        <label htmlFor="startDate" className="block text-sm font-medium text-gray-700">Start Date:</label>
-        <input
+      <div>
+        <Label htmlFor="startDate" className="mb-2 block">Start Date:</Label>
+        <Input
           type="date"
           id="startDate"
           value={startDate}
           onChange={(e) => setStartDate(e.target.value)}
-          className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
         />
       </div>
-      <div className="mb-4">
-        <label htmlFor="endDate" className="block text-sm font-medium text-gray-700">End Date:</label>
-        <input
+      <div>
+        <Label htmlFor="endDate" className="mb-2 block">End Date:</Label>
+        <Input
           type="date"
           id="endDate"
           value={endDate}
           onChange={(e) => setEndDate(e.target.value)}
-          className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
         />
       </div>
-      <button
+      <Button
         onClick={fetchData}
         disabled={loading}
-        className="w-full bg-blue-500 text-white py-2 px-4 rounded-md hover:bg-blue-600 disabled:bg-blue-300"
+        className="w-full"
       >
         {loading ? "Fetching..." : "Fetch Health Data"}
-      </button>
+      </Button>
 
       {error && <p className="text-red-500 mt-4">Error: {error}</p>}
 

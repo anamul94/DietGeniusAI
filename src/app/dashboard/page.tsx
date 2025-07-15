@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card'
 import { Button } from '@/components/ui/button'
 import { apiCall } from '@/lib/utils'
-import { User, FileText, Activity, Settings, LogOut } from 'lucide-react'
+import { User, FileText, Activity, Settings, LogOut, Brain } from 'lucide-react'
 import GoogleHealthLogin from '@/components/auth/GoogleHealthLogin'
 import GoogleHealthDataFetcher from '@/components/google-health/GoogleHealthDataFetcher'
 import GoogleHealthStatusAndRevoke from '@/components/google-health/GoogleHealthStatusAndRevoke'
@@ -111,18 +111,18 @@ export default function DashboardPage() {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <User className="w-5 h-5 text-green-500" />
+                <User className="w-5 h-5 text-primary" />
                 Profile
               </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="space-y-2">
-                <p className="text-sm text-gray-600">Age: {user?.age || 'Not specified'}</p>
-                <p className="text-sm text-gray-600">Profession: {user?.profession || 'Not specified'}</p>
-                <p className="text-sm text-gray-600">
+                <p className="text-sm text-muted-foreground">Age: {user?.age || 'Not specified'}</p>
+                <p className="text-sm text-muted-foreground">Profession: {user?.profession || 'Not specified'}</p>
+                <p className="text-sm text-muted-foreground">
                   Status: 
                   <span className={`ml-1 px-2 py-1 rounded-full text-xs ${
-                    user?.onboarding_status === 'COMPLETED' 
+                    user?.onboarding_status?.toLowerCase() === 'completed' 
                       ? 'bg-green-100 text-green-800' 
                       : 'bg-yellow-100 text-yellow-800'
                   }`}>
@@ -131,7 +131,7 @@ export default function DashboardPage() {
                 </p>
               </div>
               <Button variant="outline" size="sm" className="w-full mt-4" onClick={() => router.push('/profile')}>
-                <Settings className="w-4 h-4" />
+                <Settings className="w-4 h-4 mr-2" />
                 Edit Profile
               </Button>
             </CardContent>
@@ -141,39 +141,78 @@ export default function DashboardPage() {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <FileText className="w-5 h-5 text-blue-500" />
+                <FileText className="w-5 h-5 text-primary" />
                 Medical Reports
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-sm text-gray-600 mb-4">
+              <p className="text-sm text-muted-foreground mb-4">
                 Upload and manage your medical reports for personalized recommendations.
               </p>
               <Button variant="outline" size="sm" className="w-full" onClick={() => router.push('/reports')}>
-                <FileText className="w-4 h-4" />
+                <FileText className="w-4 h-4 mr-2" />
                 View Reports
               </Button>
             </CardContent>
           </Card>
 
-          {/* Health Insights Card */}
+          {/* Health Insights Card (Placeholder for general insights) */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <Activity className="w-5 h-5 text-orange-500" />
+                <Activity className="w-5 h-5 text-primary" />
                 Health Insights
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-sm text-gray-600 mb-4">
+              <p className="text-sm text-muted-foreground mb-4">
                 Get AI-powered insights based on your health profile and goals.
               </p>
               <Button variant="outline" size="sm" className="w-full" onClick={() => router.push('/insights')}>
-                <Activity className="w-4 h-4" />
+                <Activity className="w-4 h-4 mr-2" />
                 View Insights
               </Button>
+            </CardContent>
+          </Card>
+
+          {/* Google Health Login Card */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Activity className="w-5 h-5 text-primary" />
+                Connect Google Health
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-muted-foreground mb-4">
+                Connect your Google Health account to fetch and sync health data.
+              </p>
               <GoogleHealthLogin />
+            </CardContent>
+          </Card>
+
+          {/* Google Health Data Fetcher Card */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Activity className="w-5 h-5 text-primary" />
+                Fetch Health Data
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
               <GoogleHealthDataFetcher />
+            </CardContent>
+          </Card>
+
+          {/* Google Health Status & Revoke Card */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Activity className="w-5 h-5 text-primary" />
+                Google Health Status
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
               <GoogleHealthStatusAndRevoke />
             </CardContent>
           </Card>
@@ -182,16 +221,34 @@ export default function DashboardPage() {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <FileText className="w-5 h-5 text-green-500" />
+                <FileText className="w-5 h-5 text-primary" />
                 Food Nutrition Analysis
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-sm text-gray-600 mb-4">
+              <p className="text-sm text-muted-foreground mb-4">
                 Analyze your food intake for detailed nutritional insights.
               </p>
               <Button variant="outline" size="sm" className="w-full" onClick={() => router.push('/food-nutrition-analysis')}>
                 Analyze Food Nutrition
+              </Button>
+            </CardContent>
+          </Card>
+
+          {/* Meal Plan Card */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Brain className="w-5 h-5 text-primary" />
+                Meal Plan
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-muted-foreground mb-4">
+                Generate and view your personalized AI-powered meal plans.
+              </p>
+              <Button variant="outline" size="sm" className="w-full" onClick={() => router.push('/meal-plan')}>
+                Generate Meal Plan
               </Button>
             </CardContent>
           </Card>

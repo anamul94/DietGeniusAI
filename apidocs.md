@@ -1,302 +1,169 @@
-# DietGeniusAI API Documentation
+# NutriGenius Application Documentation
 
-This document provides an overview of the DietGeniusAI API endpoints, their methods, request/response schemas, and functionality.
+## 1. Introduction
 
-## Authentication
+NutriGenius is an AI-powered diet management application designed to provide personalized nutrition plans and health insights based on user profiles and medical data. This document serves as a comprehensive guide to the application's features, user interactions, API integrations, and underlying technical architecture.
 
-### Login with Username/Password
+## 2. Features
 
-Authenticate user with username and password to get access token.
+NutriGenius offers a robust set of features to empower users in their health journey:
 
-- **URL**: `/api/auth/login`
-- **Method**: `POST`
-- **Request Body**: `application/x-www-form-urlencoded`
-    - `username`: `string` - User email or username
-    - `password`: `string` - User password
-- **Response**:
-    - **Status**: `200 OK`
-    - **Body**:
+*   **User Authentication & Authorization**: Secure sign-up, login, and session management.
+*   **User Profile Management**: Users can create and update their personal information, including age, profession, and onboarding status.
+*   **Onboarding Process**: A guided initial setup for new users to collect essential medical and profile information.
+*   **Medical Report Management**:
+    *   **Upload**: Users can upload various medical reports (e.g., blood tests, diagnoses).
+    *   **Dynamic Display**: Reports are dynamically rendered from structured JSON data, supporting Markdown content for rich text.
+*   **AI-Powered Health Insights**:
+    *   Generates personalized health insights and recommendations based on uploaded medical data and user profiles.
+    *   Integrates with Google Health API for fetching and analyzing health data (e.g., steps, heart rate, sleep, weight, nutrition).
+*   **Food Nutrition Analysis**: Allows users to analyze their food intake to get detailed nutritional breakdowns.
+*   **Personalized Meal Plans**: (Implied by "AI-powered diet management" - details to be elaborated if implemented)
+*   **Responsive Design**: Built with Next.js, Tailwind CSS, and Shadcn UI for a seamless experience across various devices.
+*   **Dockerized Deployment**: Facilitates easy and consistent deployment across different environments.
+
+## 3. User Flow
+
+The typical user journey through the NutriGenius application is as follows:
+
+1.  **Landing Page (`/`)**: Users arrive at the application's entry point.
+2.  **Authentication (`/auth`)**:
+    *   **Sign Up**: New users register for an account.
+    *   **Login**: Existing users sign in.
+3.  **Onboarding (`/onboarding`)**: (For new users or users with `onboarding_status: 'pending'`)
+    *   Users provide initial medical information and complete their profile.
+4.  **Dashboard (`/dashboard`)**: The central hub for users, displaying:
+    *   User profile summary.
+    *   Links to Medical Reports, Health Insights, Food Nutrition Analysis.
+    *   Google Health integration options (Connect, Fetch Data, Status).
+5.  **Profile Management (`/profile`)**: Users can edit their profile details.
+6.  **Medical Reports (`/reports`)**: Users can view and manage their uploaded medical documents.
+7.  **Health Insights (`/insights`)**: Displays AI-generated health insights and recommendations.
+8.  **Food Nutrition Analysis (`/food-nutrition-analysis`)**: Interface for analyzing food intake.
+9.  **Google Health Integration**:
+    *   **Connect**: Initiates OAuth flow to connect with Google Health.
+    *   **Fetch Data**: Allows users to fetch specific health data types (e.g., steps, heart rate) within a date range.
+    *   **Status & Revoke**: Displays connection status and allows users to revoke permissions.
+
+## 4. Technical Architecture
+
+The NutriGenius application follows a client-server architecture, primarily consisting of a Next.js frontend and a Python FastAPI backend.
+
+*   **Frontend**:
+    *   **Framework**: Next.js (React)
+    *   **Styling**: Tailwind CSS, Shadcn UI (for pre-built, accessible UI components)
+    *   **State Management**: React's `useState` and `useEffect` hooks for local component state.
+    *   **Routing**: Next.js App Router.
+    *   **API Communication**: `fetch` API for interacting with the backend.
+    *   **Authentication**: JWT (JSON Web Tokens) stored in `localStorage`.
+*   **Backend**:
+    *   **Framework**: FastAPI (Python)
+    *   **Database**: (Assumed, likely PostgreSQL or similar, based on typical FastAPI setups)
+    *   **Authentication**: Handles user registration, login, and token validation.
+    *   **API Endpoints**: Provides RESTful APIs for user management, medical reports, health insights, and Google Health integration.
+    *   **AI/ML Components**: (Details to be elaborated if specific models/services are used for insights and meal plans).
+*   **Google Health API**: External API for fetching user health data.
+*   **Deployment**: Docker containers for both frontend and backend.
+
+## 5. API Integration
+
+The frontend communicates with the backend API, which is expected to be running and accessible at `NEXT_PUBLIC_API_URL` (configured in `.env`).
+
+### 5.1. Authentication
+
+*   **Login**:
+    *   **Endpoint**: `/api/auth/login` (POST)
+    *   **Request**: `{ "username": "...", "password": "..." }`
+    *   **Response**: `{ "access_token": "...", "token_type": "bearer" }`
+    *   **Usage**: The `access_token` is stored in `localStorage` and used for subsequent authenticated requests.
+*   **User Profile**:
+    *   **Endpoint**: `/api/users/me` (GET)
+    *   **Headers**: `Authorization: Bearer <access_token>`
+    *   **Response**: User profile data (`UserProfile` interface).
+
+### 5.2. Medical Reports
+
+*   **Fetch Medical Reports**:
+    *   **Endpoint**: `/api/medical-reports/medical` (GET)
+    *   **Headers**: `Authorization: Bearer <access_token>`
+    *   **Query Parameters**: (Assumed for pagination, e.g., `page`, `limit`)
+    *   **Response**: List of medical reports.
+*   **Generate Medical Insights**:
+    *   **Endpoint**: `/api/medical-reports/memory-test` (POST)
+    *   **Headers**: `Authorization: Bearer <access_token>`
+    *   **Request**: (Specific to the data required for insight generation)
+    *   **Response**: Generated health insights.
+
+### 5.3. Google Health Integration
+
+*   **Get Authorization URL**:
+    *   **Endpoint**: `/api/google-health/auth-url` (GET)
+    *   **Response**: `{ "auth_url": "..." }` (URL to redirect user for Google OAuth)
+*   **Google Health Callback**:
+    *   **Endpoint**: `/api/google-health/callback` (GET)
+    *   **Query Parameters**: `code`, `state` (handled by backend after Google OAuth redirect)
+    *   **Usage**: This endpoint is hit by Google after user grants permission.
+*   **Fetch and Save Google Health Data**:
+    *   **Endpoint**: `/api/google-health/data/fetch-and-save` (POST)
+    *   **Headers**: `Authorization: Bearer <access_token>`
+    *   **Request**:
         ```json
         {
-            "access_token": "string",
-            "token_type": "bearer"
+          "data_types": ["steps", "heart_rate", "sleep", "weight", "nutrition"],
+          "start_date": "YYYY-MM-DDTHH:MM:SSZ",
+          "end_date": "YYYY-MM-DDTHH:MM:SSZ"
         }
         ```
-    - **Error Responses**:
-        - `401 Unauthorized`: Incorrect username or password.
-        - `500 Internal Server Error`: Authentication service error.
+    *   **Response**: Fetched and saved health data.
+*   **Google Health Connection Status**:
+    *   **Endpoint**: `/api/google-health/status` (GET)
+    *   **Headers**: `Authorization: Bearer <access_token>`
+    *   **Response**: `{ "connected": true/false, "expires_at": "...", "scopes": [...] }`
+*   **Revoke Google Health Permissions**:
+    *   **Endpoint**: `/api/google-health/revoke` (POST)
+    *   **Headers**: `Authorization: Bearer <access_token>`
+    *   **Response**: Success message.
 
-### Google OAuth Login
+## 6. Data Models (Frontend Perspective)
 
-Initiate Google OAuth login flow.
-
-- **URL**: `/api/auth/google-login`
-- **Method**: `GET`
-- **Response**: Redirects to Google OAuth consent screen
-
-### Google OAuth Callback
-
-Handles Google OAuth callback and returns access token.
-
-- **URL**: `/api/auth/google/callback`
-- **Method**: `GET`
-- **Query Parameters**: (Handled automatically by OAuth flow)
-- **Response**:
-    - **Status**: `200 OK`
-    - **Body**:
-        ```json
-        {
-            "access_token": "string",
-            "token_type": "bearer",
-            "user_info": {
-                "id": "integer",
-                "email": "string",
-                "username": "string",
-                "role": "string",
-                "avatar": "string (optional)",
-                "is_active": "boolean",
-                "onboarding_status": "string (PENDING or COMPLETED)"
-            }
-        }
-        ```
-    - **Error Responses**:
-        - `400 Bad Request`: OAuth error or invalid request.
-        - `500 Internal Server Error`: Authentication failed.
-
-## Medical Reports
-
-### Upload Medical Report
-
-Uploads one or more medical report files for processing.
-
-- **URL**: `/api/medical-reports/medical`
-- **Method**: `POST`
-- **Authentication**: Required (User)
-- **Request**:
-    - **Headers**: `Content-Type: multipart/form-data`
-    - **Body**:
-        - `files`: List of `UploadFile` (PDF, DOC, DOCX, TXT, MD, JPG, JPEG, PNG, WEBP). Maximum 3 files.
-- **Response**:
-    - **Status**: `200 OK`
-    - **Body**:
-        ```json
-        {
-            "id": "string (UUID)",
-            "processing_status": "completed",
-            "data": {
-                // Processed medical report data
-            }
-        }
-        ```
-    - **Error Responses**:
-        - `400 Bad Request`: No files provided, too many files, or invalid file type.
-        - `500 Internal Server Error`: Failed to process medical report.
-
-### Get Medical Reports
-
-Retrieves paginated medical reports for the current user, sorted by date (newest first).
-
-- **URL**: `/api/medical-reports/medical`
-- **Method**: `GET`
-- **Authentication**: Required (User)
-- **Query Parameters**:
-    - `page`: `integer` (default: 1, min: 1) - Page number.
-    - `limit`: `integer` (default: 10, min: 1, max: 100) - Items per page.
-- **Response**:
-    - **Status**: `200 OK`
-    - **Body**:
-        ```json
-        {
-            "data": [
-                {
-                    "id": "string (UUID)",
-                    "medical_report": {
-                        // Medical report data
-                    },
-                    "uploaded_at": "string (datetime)"
-                }
-            ],
-            "pagination": {
-                "page": "integer",
-                "limit": "integer",
-                "total": "integer",
-                "pages": "integer"
-            }
-        }
-        ```
-    - **Error Responses**:
-        - `500 Internal Server Error`: Failed to fetch medical reports.
-
-### Onboarding QA
-
-Processes user answers for onboarding questions and generates the next question. Conducts 4-round assessment and automatically updates user onboarding status to COMPLETED after final round.
-
-- **URL**: `/api/medical-reports/onboarding-qa`
-- **Method**: `POST`
-- **Authentication**: Required (User)
-- **Request Body**: `application/json`
-    ```json
-    {
-        "answer": "string",
-        "count": "integer (0-3)",
-        "chat_history": [
-            {
-                "question": "string",
-                "answer": "string"
-            }
-        ]
+*   **UserProfile**:
+    ```typescript
+    interface UserProfile {
+      email: string;
+      username: string;
+      age?: number;
+      profession?: string;
+      onboarding_status: string; // e.g., 'PENDING', 'COMPLETED'
     }
     ```
-- **Response**:
-    - **Status**: `200 OK`
-    - **Body**:
-        ```json
-        {
-            "question": "string",
-            "count": "integer (1-4)",
-            "chat_history": [
-                {
-                    "question": "string",
-                    "answer": "string"
-                }
-            ]
-        }
-        ```
-    - **Notes**:
-        - Round 1-3: Assessment questions
-        - Round 4: Final summary with completion message
-        - User onboarding_status automatically updated to COMPLETED after round 4
-    - **Error Responses**:
-        - `500 Internal Server Error`: Failed to process onboarding QA.
-
-### Memory Test
-
-Tests the agent's memory by processing a message.
-
-- **URL**: `/api/medical-reports/memory-test`
-- **Method**: `POST`
-- **Authentication**: Required (User)
-- **Request Body**: `application/json`
-    ```json
-    {
-        "message": "string"
+*   **GoogleHealthDataItem**: (Example, based on `GoogleHealthDataFetcher` usage)
+    ```typescript
+    interface GoogleHealthDataItem {
+      data_type: string; // e.g., "steps", "heart_rate"
+      start_time: string; // ISO 8601 datetime string
+      end_time: string;   // ISO 8601 datetime string
+      value: any;         // Varies based on data_type (e.g., number for steps, object for nutrition)
+      source?: string;
     }
     ```
-- **Response**:
-    - **Status**: `200 OK`
-    - **Body**: (Varies based on agent's response)
-- **Error Responses**:
-    - `500 Internal Server Error`: Failed to process memory test.
-
-## Users
-
-### Get Current User
-
-Retrieves the profile information of the currently authenticated user.
-
-- **URL**: `/api/users/me`
-- **Method**: `GET`
-- **Authentication**: Required (User)
-- **Response**:
-    - **Status**: `200 OK`
-    - **Body**:
-        ```json
-        {
-            "email": "string (email)",
-            "username": "string",
-            "avatar": "string (optional)",
-            "gender": "string (optional)",
-            "dob": "string (date, YYYY-MM-DD, optional)",
-            "phone": "string (optional)",
-            "address": "string (optional)",
-            "city": "string (optional)",
-            "country": "string (optional)",
-            "postal_code": "string (optional)",
-            "timezone": "string (optional)",
-            "profession": "string (optional)",
-            "id": "integer",
-            "is_active": "boolean",
-            "role": "string (USER or ADMIN)",
-            "onboarding_status": "string (PENDING or COMPLETED)",
-            "created_at": "string (datetime)",
-            "updated_at": "string (datetime, optional)",
-            "age": "integer (computed, optional)"
-        }
-        ```
-
-### Update Current User
-
-Updates the profile information of the currently authenticated user.
-
-- **URL**: `/api/users/me`
-- **Method**: `PUT`
-- **Authentication**: Required (User)
-- **Request Body**: `application/json`
-    ```json
-    {
-        "email": "string (email, optional)",
-        "username": "string (optional)",
-        "password": "string (optional)",
-        "role": "string (optional, only modifiable by ADMIN)",
-        "avatar": "string (optional)",
-        "gender": "string (optional)",
-        "dob": "string (date, YYYY-MM-DD, optional)",
-        "phone": "string (optional)",
-        "address": "string (optional)",
-        "city": "string (optional)",
-        "country": "string (optional)",
-        "postal_code": "string (optional)",
-        "timezone": "string (optional)",
-        "profession": "string (optional)"
+*   **MedicalReport**: (Assumed structure, based on dynamic rendering)
+    ```typescript
+    interface MedicalReport {
+      id: string;
+      title: string;
+      date: string;
+      content_markdown: string; // Markdown content for display
+      // ... other relevant fields
     }
     ```
-- **Response**:
-    - **Status**: `200 OK`
-    - **Body**: (Same as Get Current User response)
-    - **Error Responses**:
-        - `400 Bad Request`: If email/username already registered or other validation errors.
-        - `500 Internal Server Error`: Error updating user.
 
-### Get All Users (Admin Only)
+## 7. Deployment
 
-Retrieves a list of all users. This endpoint is restricted to admin users.
+The application is designed for Dockerized deployment. Refer to the `README.md` for detailed instructions on building and running Docker images for both frontend and backend.
 
-- **URL**: `/api/users/all`
-- **Method**: `GET`
-- **Authentication**: Required (Admin)
-- **Query Parameters**:
-    - `skip`: `integer` (default: 0) - Number of items to skip.
-    - `limit`: `integer` (default: 100) - Maximum number of items to return.
-- **Response**:
-    - **Status**: `200 OK`
-    - **Body**: `array` of User objects (Same as Get Current User response)
-    - **Error Responses**:
-        - `403 Forbidden`: If the authenticated user is not an admin.
-        - `500 Internal Server Error`: Error retrieving users.
+## 8. Contributing
 
-### Update User Profile Information
+Refer to the `README.md` for guidelines on contributing to the project.
 
-Updates specific profile information for the current user.
-
-- **URL**: `/api/users/profile`
-- **Method**: `PUT`
-- **Authentication**: Required (User)
-- **Request Body**: `application/json`
-    ```json
-    {
-        "gender": "string (optional)",
-        "dob": "string (date, YYYY-MM-DD, optional)",
-        "phone": "string (optional)",
-        "address": "string (optional)",
-        "city": "string (optional)",
-        "country": "string (optional)",
-        "postal_code": "string (optional)",
-        "timezone": "string (optional)",
-        "profession": "string (optional)"
-    }
-    ```
-- **Response**:
-    - **Status**: `200 OK`
-    - **Body**: (Same as Get Current User response)
-    - **Error Responses**:
-        - `500 Internal Server Error`: Error updating profile.
+---
+*This document is subject to updates as the application evolves.*

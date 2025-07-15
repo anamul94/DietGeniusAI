@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Button } from "@/components/ui/button"; // Import the Button component
 
 const GoogleHealthLogin = () => {
   const [error, setError] = useState<string | null>(null);
@@ -22,9 +23,9 @@ const GoogleHealthLogin = () => {
   };
 
   return (
-    <div>
-      <button onClick={handleLogin}>Connect to Google Health</button>
-      {error && <p style={{ color: "red" }}>{error}</p>}
+    <div className="p-2">
+      <Button onClick={handleLogin} className="w-full">Connect to Google Health</Button>
+      {error && <p className="text-red-500 text-sm mt-2">{error}</p>}
     </div>
   );
 };

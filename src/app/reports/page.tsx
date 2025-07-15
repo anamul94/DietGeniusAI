@@ -4,9 +4,10 @@ import { useState, useEffect } from 'react'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card'
 import { Button } from '@/components/ui/button'
 import { apiCall, formatDate } from '@/lib/utils'
-import { FileText, ChevronLeft, ChevronRight } from 'lucide-react'
+import { FileText, ChevronLeft, ChevronRight, ArrowLeft } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
+import { useRouter } from 'next/navigation'
 
 interface MedicalReport {
   id: string
@@ -22,6 +23,7 @@ export default function ReportsPage() {
   const [loading, setLoading] = useState(true)
   const [page, setPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
+  const router = useRouter()
 
   const fetchReports = async (pageNum: number) => {
     setLoading(true)
@@ -66,6 +68,12 @@ export default function ReportsPage() {
   return (
     <div className="min-h-screen bg-gray-50 py-8">
       <div className="container max-w-4xl">
+        <div className="mb-8">
+          <Button variant="outline" onClick={() => router.back()}>
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Back to Dashboard
+          </Button>
+        </div>
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold text-gray-900 mb-2">Medical Reports</h1>
           <p className="text-gray-600">View and manage your uploaded medical reports</p>
