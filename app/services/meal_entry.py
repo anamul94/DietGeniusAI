@@ -427,51 +427,25 @@ def get_meal_entries_by_date(
         logger.error(f"Error getting meal entries by date: {str(e)}")
         raise MealEntryServiceError(f"Error getting meal entries by date: {str(e)}")
     
+# This function is deprecated - use app.services.meal_plan.generate_and_save_meal_plan instead
 async def create_meal_plan(
     user_id: int,
     session_id: str,
 ):
     """
-    Create a new meal plan for the user
+    Create a new meal plan for the user (deprecated - use meal_plan service)
 
     Args:
         user_id: User ID
         session_id: Session ID
     """
-    db_generator = get_db()
-    db = next(db_generator)
-    try:
-        user = get_user(db, user_id)
-        logger.info(
-            f"Creating meal plan for user {user.username} with session {session_id}"
-        )
-        today = datetime.now().date()
-        meal_planner = meal_plan_agent()
-        meal_plan = ""
-        age = calculate_age(user.dob)
-        message=f"""Generate a well defined meal plan for 7 days,
-            user name: {user.username},
-            gender: {user.gender},
-            age: {age},
-            profession:  {user.profession}
-            country: {user.country},
-            city:  {user.city},
-            date: {today}"
-          """
-        logger.info(
-            f"Meal plan message: {message}"
-        )
-        for chunk in meal_planner.run(
-            message=message,
-            user_id=user.id,
-            stream=True,
-        ):
-            if chunk is not None:
-                meal_plan += chunk.content
-                print(chunk.content, end="", flush=True)
-                
-        return {
-            "meal_plan": meal_plan,
-        }
-    finally:
-        db.close()
+    from app.services.meal_plan import generate_and_save_meal_plan
+    
+    # Use the new meal plan service
+    saved_meal_plan = await generate_and_save_meal_plan(user_id, session_id)
+    
+    return {
+        "meal_plan": saved_meal_plan.meal_plan,
+        "plan_date": saved_meal_plan.plan_date,
+        "meal_plan_id": saved_meal_plan.id
+    }

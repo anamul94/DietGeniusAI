@@ -13,6 +13,12 @@ from app.schemas.meal_entry import (
     MealEntryPagination,
     MealTypeCheck
 )
+from app.schemas.meal_plan import (
+    MealPlan,
+    MealPlanPagination,
+    MealPlanResponse,
+    GenerateMealPlanRequest
+)
 from app.schemas.meal_types import MealTypesResponse, MealTypeInfo
 from app.schemas.nutrition import FoodNutritionResponse
 from app.services.meal_entry import (
@@ -25,6 +31,14 @@ from app.services.meal_entry import (
     save_nutrition_data_to_meal_entry,
     create_meal_plan,
     MealEntryServiceError
+)
+from app.services.meal_plan import (
+    generate_and_save_meal_plan,
+    get_meal_plans,
+    get_latest_meal_plan,
+    get_meal_plan_by_id,
+    delete_meal_plan,
+    MealPlanServiceError
 )
 from app.services.meal_types import get_meal_types_response
 from app.services.nutrition import parse_nutrition
@@ -187,25 +201,247 @@ def check_meal_type(
         )
 
 
-@router.post("/generate-meal-plan")
+@router.post("/meal-plans/generate", response_model=MealPlanResponse)
 async def generate_meal_plan(
-    cuurent_user: User = Depends(get_current_user),
-    session_id:str = Query(None, description="Session ID for tracking"),
+    request: Request,
+    current_user: User = Depends(get_current_user),
+    session_id: str = Query(None, description="Session ID for tracking"),
 ):
     """
-    Generate a meal plan for the current user
+    Generate and save a meal plan for the current user
     """
     try:
-        meal_plan = await create_meal_plan(
-            user_id=cuurent_user.id,
-            session_id=session_id)
-       
-        return meal_plan
+        saved_meal_plan = await generate_and_save_meal_plan(
+            user_id=current_user.id,
+            session_id=session_id or f"session_{current_user.id}_{datetime.now().timestamp()}"
+        )
+        
+        logger.info(
+            f"User generated meal plan",
+            extra={
+                "user_id": current_user.id,
+                "username": current_user.username,
+                "meal_plan_id": saved_meal_plan.id,
+                "plan_date": saved_meal_plan.plan_date.isoformat(),
+                "client_ip": request.client.host if request.client else None,
+            }
+        )
+        
+        return MealPlanResponse(
+            success=True,
+            message="Meal plan generated and saved successfully",
+            meal_plan=saved_meal_plan
+        )
+        
+    except MealPlanServiceError as e:
+        logger.error(f"Meal plan service error: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e),
+        )
     except Exception as e:
         logger.error(f"Error generating meal plan: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Error generating meal plan",
+        )
+
+@router.get("/meal-plans", response_model=MealPlanPagination)
+def get_user_meal_plans(
+    request: Request,
+    start_date: Optional[date] = Query(None, description="Filter by start date"),
+    end_date: Optional[date] = Query(None, description="Filter by end date"),
+    page: int = Query(1, ge=1, description="Page number"),
+    limit: int = Query(10, ge=1, le=100, description="Items per page"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Get paginated meal plans for the current user (newest first)
+    """
+    try:
+        result = get_meal_plans(
+            db,
+            user_id=current_user.id,
+            start_date=start_date,
+            end_date=end_date,
+            page=page,
+            limit=limit
+        )
+        
+        logger.info(
+            f"User retrieved meal plans",
+            extra={
+                "user_id": current_user.id,
+                "username": current_user.username,
+                "page": page,
+                "limit": limit,
+                "total_plans": result.total,
+                "client_ip": request.client.host if request.client else None,
+            }
+        )
+        
+        return result
+    except Exception as e:
+        logger.error(f"Error retrieving meal plans: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Error retrieving meal plans",
+        )
+
+@router.get("/meal-plans/latest", response_model=MealPlan)
+def get_user_latest_meal_plan(
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Get the latest meal plan for the current user
+    """
+    try:
+        latest_plan = get_latest_meal_plan(db, current_user.id)
+        
+        if not latest_plan:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="No meal plans found for this user",
+            )
+        
+        logger.info(
+            f"User retrieved latest meal plan",
+            extra={
+                "user_id": current_user.id,
+                "username": current_user.username,
+                "meal_plan_id": latest_plan.id,
+                "plan_date": latest_plan.plan_date.isoformat(),
+                "client_ip": request.client.host if request.client else None,
+            }
+        )
+        
+        return latest_plan
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error retrieving latest meal plan: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Error retrieving latest meal plan",
+        )
+
+@router.get("/meal-plans/{meal_plan_id}", response_model=MealPlan)
+def get_meal_plan_by_id_endpoint(
+    meal_plan_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Get a specific meal plan by ID
+    """
+    meal_plan = get_meal_plan_by_id(db, meal_plan_id)
+    
+    if not meal_plan:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Meal plan not found",
+        )
+    
+    # Check if the meal plan belongs to the current user (unless admin)
+    if meal_plan.user_id != current_user.id and current_user.role != "admin":
+        logger.warning(
+            f"User attempted to access another user's meal plan",
+            extra={
+                "user_id": current_user.id,
+                "username": current_user.username,
+                "meal_plan_id": meal_plan_id,
+                "meal_plan_owner_id": meal_plan.user_id,
+                "client_ip": request.client.host if request.client else None,
+            }
+        )
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not authorized to access this meal plan",
+        )
+    
+    logger.info(
+        f"User retrieved meal plan",
+        extra={
+            "user_id": current_user.id,
+            "username": current_user.username,
+            "meal_plan_id": meal_plan_id,
+            "client_ip": request.client.host if request.client else None,
+        }
+    )
+    
+    return meal_plan
+
+@router.delete("/meal-plans/{meal_plan_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_meal_plan_by_id(
+    meal_plan_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Delete a meal plan
+    """
+    # First check if the meal plan exists and belongs to the user
+    meal_plan = get_meal_plan_by_id(db, meal_plan_id)
+    
+    if not meal_plan:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Meal plan not found",
+        )
+    
+    # Check if the meal plan belongs to the current user (unless admin)
+    if meal_plan.user_id != current_user.id and current_user.role != "admin":
+        logger.warning(
+            f"User attempted to delete another user's meal plan",
+            extra={
+                "user_id": current_user.id,
+                "username": current_user.username,
+                "meal_plan_id": meal_plan_id,
+                "meal_plan_owner_id": meal_plan.user_id,
+                "client_ip": request.client.host if request.client else None,
+            }
+        )
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not authorized to delete this meal plan",
+        )
+    
+    try:
+        success = delete_meal_plan(db, meal_plan_id)
+        
+        if not success:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Meal plan not found",
+            )
+        
+        logger.info(
+            f"User deleted meal plan",
+            extra={
+                "user_id": current_user.id,
+                "username": current_user.username,
+                "meal_plan_id": meal_plan_id,
+                "client_ip": request.client.host if request.client else None,
+            }
+        )
+        
+        return None
+    except MealPlanServiceError as e:
+        logger.error(f"Error deleting meal plan: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Error deleting meal plan",
+        )
+    except Exception as e:
+        logger.error(f"Unexpected error deleting meal plan: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="An unexpected error occurred",
         )
 
 
