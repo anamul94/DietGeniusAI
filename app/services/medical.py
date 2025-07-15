@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy.exc import SQLAlchemyError
 from typing import Optional
 from app.core.logging import logger
+from app.schemas.agnent_qa import AgentQA
 from app.models.medical import MedicalReport
 from app.models.user import User, OnboardingStatus
 from sqlalchemy import desc
@@ -12,6 +13,7 @@ from fastapi import Depends
 from app.schemas.qa import QaAns, QA
 from app.utils.age_calculator import calculate_age
 import json
+from datetime import datetime
 
 class MedicalReportPaginator(BasePaginator):
     def get_query(self, user_id: int):
@@ -45,25 +47,23 @@ def get_user_medical_reports_paginated(
     except SQLAlchemyError as e:
         logger.error(f"Database error when fetching medical reports: {str(e)}")
         return None
-    
-    
-  # Ensure this import exists and is correct
 
 async def user_onboarding_qa(
     ans: QaAns,
     user_id: int,
-    db: Session 
+    db: Session
 ):
     try:
         agent = user_onboarding_agent()
-        # logger.info(f"agnet info {agent}")
         user_message = ""
+        today = datetime.now().date()
         
+        # Fetch user info first since we need it in multiple places
+        user = db.query(User).filter(User.id == user_id).first()
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+            
         if ans.count == 0:
-            # Fetch user info
-            user = db.query(User).filter(User.id == user_id).first()
-            if not user:
-                raise HTTPException(status_code=404, detail="User not found")
             
             # Fetch 2 reports for the user
             medical_reports = get_user_medical_reports_paginated(
@@ -74,7 +74,7 @@ async def user_onboarding_qa(
             )
             
             if medical_reports is None:
-                raise HTTPException(status_code=500, detail="Failed to fetch medical reports.")
+                pass
             
             # Create data structure with user info
             data_dict = {
@@ -86,69 +86,53 @@ async def user_onboarding_qa(
                 "user_profile": {
                     "gender": user.gender,
                     "age": calculate_age(user.dob),
-                    "profession": user.profession
+                    "profession": user.profession,
+                    "height": user.height,
+                    "weight": user.weight,
+                    "bmi": user.bmi,
+                    "dietary_preference": user.dietary_preference,
+                    "purpose_of_joining": user.purpose_of_joining
                 },
                 "user_response": ans.answer,
-                "qa_round": ans.count+1
+                "qa_round": ans.count+1,
+                "date": str(today)
             }
             
-            # Convert to string
-            
             user_message = json.dumps(data_dict)
+        elif ans.count == 3: 
+            user.onboarding_status = "completed"
+            db.add(user)
+            db.commit()
+            response = agent.run(message="Done, summarize the session", user_id=str(user_id), session_id=str(user_id))
+            print(response.content)
+            return QA(
+                question=response.content,
+                message="Thank You For your cooperation",
+                is_done=True,
+                count=4
+            )
         else:
-            # Add completion instruction for round 3
-            # if ans.count == 2:
-                # completion_note = "This is the final question. After this response, provide a comprehensive assessment summary."
-            # else:
-               
-            
-                data = {
+            data = {
                 "answer": ans.answer,
-                "qa_round": ans.count+1,
-                         }
-                user_message = json.dumps(data)
+                "qa_round": ans.count+1
+            }
+            user_message = json.dumps(data)
     
         # Process the user message
-        # logger.info(f"User message: {user_message}")
-        response =  agent.run(message=user_message, user_id=str(user_id), session_id=str(user_id))
-        qa_res = response.content
-        # Remove duplicate logging as the agent library already logs this
+        response = agent.run(message=user_message, user_id=str(user_id), session_id=str(user_id))
         
-        # Update onboarding status if completed (after 4 rounds)
-        if qa_res.is_done:
-            user = db.query(User).filter(User.id == user_id).first()
-            if user:
-                user.onboarding_status = "completed"
-                db.add(user)
-                db.commit()
-        # if ans.count >= 3:
-        #     user = db.query(User).filter(User.id == user_id).first()
-        #     if user:
-        #         user.onboarding_status = "completed"
-        #         db.add(user)
-        #         db.commit()
-        
-        # chat_hist = {
-        #     "question": qa_res.question,
-        #     "answer": qa_res.answer,
-        # }
-        # prev_hist = ans.chat_history if ans.chat_history else []
-        # prev_hist.append(chat_hist)
-            
         return QA(
-            question=qa_res.follow_up_question,
-            is_done=qa_res.is_done,
-            count=ans.count+1,
-            # chat_history=prev_hist
+            question=response.content,
+            message="",
+            is_done=False,
+            count=ans.count+1
         )
         
     except Exception as e:
         logger.error(f"Error processing onboarding QA for user {user_id}: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail="Failed to process onboarding QA. Please try again later.")
     
-    
-async def agent_mem_test(message: str, user_id: str, ):
-        agent = get_memory_test_agent()
-        response = agent.run(message=message, user_id=str(user_id))
-        # Remove duplicate logging as the agent library already logs this
-        return {"response": response.content}
+async def agent_mem_test(message: str, user_id: str):
+    agent = get_memory_test_agent()
+    response = agent.run(message=message, user_id=str(user_id))
+    return {"response": response.content}

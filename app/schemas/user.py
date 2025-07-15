@@ -18,6 +18,11 @@ class UserBase(BaseModel):
     postal_code: Optional[str] = None
     timezone: Optional[str] = None
     profession: Optional[str] = None
+    height: Optional[float] = None
+    weight: Optional[float] = None
+    bmi: Optional[float] = None
+    dietary_preference: Optional[str] = None
+    purpose_of_joining: Optional[str] = None
 
 class UserCreate(UserBase):
     password: str = Field(..., min_length=8)
@@ -58,7 +63,13 @@ class UserUpdate(BaseModel):
     country: Optional[str] = None
     postal_code: Optional[str] = None
     timezone: Optional[str] = None
-    profession: Optional[str] = None
+    profession: Optional[str] = None,
+    height: Optional[float] = None
+    weight: Optional[float] = None
+    bmi: Optional[float] = None
+    dietary_preference: Optional[str] = None
+    purpose_of_joining: Optional[str] = None
+    
 
 class UserInDBBase(UserBase):
     id: int

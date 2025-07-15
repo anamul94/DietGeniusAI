@@ -14,7 +14,8 @@ from app.schemas.daily_activity_summary import (
     DailyActivitySummaryUpdate
 )
 
-from app.agents.agetns import assesment_agent
+from app.agents.agetns import assessment_agent
+from app.agents.utility_agent import report_representation_agent
 
 
 async def fetch_and_process_daily_health_data(
@@ -375,7 +376,6 @@ async def daily_activity_assessment_by_ai_nutritionis(
             nutrition_summary = []
         # Create message for AI agent
         message = dedent(f"""\
-            User ID: {user_id}
             User Name: {user_name}
             Assessment Date: {target_date}
             
@@ -390,11 +390,19 @@ async def daily_activity_assessment_by_ai_nutritionis(
         """)
         
         # Get AI assessment
-        nutritionist_agent = assesment_agent()
+        nutritionist_agent = assessment_agent()
         summary = ""
         for chunk in nutritionist_agent.run(message=message, stream=True):
             if chunk.content is not None:
                 summary += chunk.content
+                print(chunk.content, end="", flush=True)
+                
+        # docs_formater = report_representation_agent()
+        logger.info("**********************************************")
+        final_summary = ""
+        for chunk in report_representation_agent.run(message=summary, stream=True):
+            if chunk.content is not None:
+                final_summary += chunk.content
                 print(chunk.content, end="", flush=True)
         
         # Save summary to database
@@ -402,14 +410,14 @@ async def daily_activity_assessment_by_ai_nutritionis(
             db=db,
             user_id=user_id,
             target_date=target_date,
-            summary=summary
+            summary=final_summary
         )
         
         logger.info(f"Successfully created AI assessment for user {user_id} on {target_date}")
         
         return {
             "date": target_date,
-            "summary": summary
+            "summary": final_summary
         }
         
     except Exception as e:

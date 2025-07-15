@@ -9,7 +9,7 @@ from app.agents.memory.memory import get_memory_with_manager
 from app.constants.prompts import prompts, daily_summary
 from app.schemas.agnent_qa import AgentQA
 from app.schemas.nutrition import FoodNutritionResponse
-from app.agents.memory import storage
+from app.agents.memory import storage as agent_storage
 # from agno.models.ollama import Ollama
 
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
@@ -38,7 +38,7 @@ def user_onboarding_agent():
     return Agent(
     name="Clinical Dietitian",
     description="Clinical dietitian conducting patient assessment for personalized diet planning.",
-    model=bedrock_model.aws_model(id=bedrock.ANTHROPIC_HAIKU_3),
+    model=bedrock_model.aws_model(id=bedrock.NOVA_PRO),
     instructions=dedent("""\
         You are a clinical dietitian conducting patient assessment for diet planning.
         
@@ -96,9 +96,12 @@ def user_onboarding_agent():
     add_datetime_to_instructions=True,
     markdown=True,
     # structured_outputs=True,
-    response_model=AgentQA,
     enable_agentic_memory=True,
+    storage= agent_storage.USER_DAILY_LOG_SESSION_STORAGE,
+    
     goal="Patient Assessment",
+    search_previous_sessions_history=True,
+    add_history_to_messages=True,
     
 )
     
@@ -128,36 +131,187 @@ def nutrition_analysis_agent():
         parser_model=bedrock_model.aws_model(id=bedrock.NOVA_PRO),
         goal="Extract nutrition facts from foods",
         instructions=prompts.FOOD_NUTRITION_EXTRACTION_INSTRUCTION, 
-        storage=storage.GENERAL_SESSION_STORAGE,
+        storage=agent_storage.GENERAL_SESSION_STORAGE,
         add_history_to_messages=False,
         response_model=FoodNutritionResponse,
     )
     
-def assesment_agent():
+# def assessment_agent():
+#     memory = get_memory_with_manager(
+#         memory_model=bedrock_model.aws_model(id=bedrock.NOVA_PRO),
+#         memory_manager_model=bedrock_model.aws_model(id=bedrock.NOVA_PRO),
+#         additional_instructions=daily_summary.memory_update_instruction_for_daily_summary
+#     )
+#     return Agent(
+#         name="Expert Nutritionist",
+#         model=bedrock_model.aws_model(id=bedrock.ANTHROPIC_SONNET_3),
+#         reasoning=False,
+#         goal="Generate comprehensive daily patient insights and personalized nutritional guidance based on multi-modal health data",
+#         instructions=daily_summary.daily_assessment_instruction,
+#         storage=storage.USER_DAILY_LOG_SESSION_STORAGE,
+#         memory=memory,
+#         system_message=dedent("""\
+#             You are an expert Registered Dietitian and Nutritionist providing personalized daily health insights.
+#             You monitor patients like a dedicated nutritionist would, analyzing their daily nutrition, activity, and biometric data.
+#             Always review patient's historical data and trends to provide contextual, actionable insights.
+#             Maintain a professional yet supportive tone — be encouraging but honest about health risks.
+#             Connect food choices directly to physiological responses using available biometric data.
+#             If insufficient data exists, use patient profile information to generate tailored baseline recommendations.
+#             """),
+#         enable_user_memories=True,
+#         add_datetime_to_instructions=True,
+#         search_previous_sessions_history=True,
+#         markdown=True,
+#     )
+
+def assessment_agent():
     memory = get_memory_with_manager(
         memory_model=bedrock_model.aws_model(id=bedrock.NOVA_PRO),
         memory_manager_model=bedrock_model.aws_model(id=bedrock.NOVA_PRO),
-        additional_instructions=daily_summary.memory_update_instruction_for_daily_summary
+        additional_instructions="Extract patient's medical history, current health status, dietary patterns, exercise habits, biometric data, and health-impacting factors. Track progression trends and identify correlations between lifestyle factors and health outcomes."
     )
     return Agent(
-        name="Nutritionist",
+        name="Clinical Assessment Specialist",
         model=bedrock_model.aws_model(id=bedrock.ANTHROPIC_SONNET_3),
         reasoning=False,
-        goal="Assess the user's health and provide recommendations",
-        instructions=daily_summary.daily_assessment_instruction,
-        storage=storage.USER_DAILY_LOG_SESSION_STORAGE,
-        memory=memory,
+        goal="Generate comprehensive daily patient insights and personalized nutritional guidance based on multi-modal health data",
+        instructions=dedent("""\
+            Generate a comprehensive daily patient insightful summary based on multi-modal patient data analysis.
+            
+            ## CORE REQUIREMENTS:
+            - Focus exclusively on medically relevant information and clinical insights
+            - Eliminate casual conversation, gratitude expressions, and non-essential content
+            - Generate objective, evidence-based health assessments
+            - Provide actionable clinical recommendations
+            
+            ## DATA ANALYSIS FRAMEWORK:
+            
+            ### 1. DAILY LOG ANALYSIS
+            - Extract and analyze patient's daily food intake, timing, and portions
+            - Review physical activity data (gym sessions, walking, exercise intensity)
+            - Process biometric readings (CGM, heart rate, blood pressure, sleep data)
+            - Identify patterns and correlations between lifestyle factors and health metrics
+            
+            ### 2. MEDICAL CONDITION MONITORING
+            - Cross-reference food choices with known medical conditions
+            - Identify potential trigger foods or beneficial nutrients
+            - Monitor compliance with dietary restrictions and therapeutic recommendations
+            - Assess impact of medications on nutritional status
+            
+            ### 3. NUTRITION-HEALTH CORRELATION
+            - Analyze relationship between food intake and biometric responses
+            - Identify foods causing adverse reactions or health improvements
+            - Track macronutrient and micronutrient adequacy
+            - Monitor hydration status and electrolyte balance
+            
+            ## REPORT STRUCTURE:
+            
+            ### PATIENT DAILY ASSESSMENT - [DATE]
+            
+            #### NUTRITIONAL INTAKE ANALYSIS
+            | Nutrient Category | Amount Consumed | Daily Requirement | Status | Clinical Impact |
+            |-------------------|-----------------|-------------------|---------|-----------------|
+            | Calories (kcal) | [value] | [DRI] | [adequate/excess/deficient] | [metabolic impact] |
+            | Protein (g) | [value] | [requirement] | [status] | [muscle/recovery impact] |
+            | Carbohydrates (g) | [value] | [requirement] | [status] | [glucose impact] |
+            | Fats (g) | [value] | [requirement] | [status] | [cardiovascular impact] |
+            | Fiber (g) | [value] | [requirement] | [status] | [digestive impact] |
+            | Sodium (mg) | [value] | [limit] | [status] | [BP/fluid impact] |
+            | Key Vitamins/Minerals | [values] | [requirements] | [status] | [health impact] |
+            
+            #### BIOMETRIC-NUTRITION CORRELATIONS
+            - **Glucose Response**: [CGM patterns, food triggers, timing correlations]
+            - **Cardiovascular Response**: [HR patterns, BP changes, exercise correlation]
+            - **Activity Performance**: [Energy levels, exercise capacity, recovery metrics]
+            - **Sleep Quality**: [Duration, quality, nutrition impact]
+            
+            #### MEDICAL CONDITION ASSESSMENT
+            - **Primary Condition Status**: [How today's choices support/challenge condition management]
+            - **Dietary Compliance**: [Adherence to restrictions, therapeutic goals]
+            - **Symptom Monitoring**: [Any condition-related symptoms, food triggers]
+            - **Medication Interactions**: [Nutrition-drug interactions, timing considerations]
+            
+            #### CLINICAL ALERTS & WARNINGS
+            **🚨 IMMEDIATE CONCERNS:**
+            - [Any foods consumed that negatively impact patient's medical conditions]
+            - [Significant deviations from therapeutic diet plans]
+            - [Biometric readings indicating adverse food reactions]
+            
+            **⚠️ MONITORING REQUIRED:**
+            - [Foods/patterns requiring closer observation]
+            - [Potential developing issues or trends]
+            
+            #### ACTIVITY-NUTRITION INTEGRATION
+            | Activity Type | Duration/Intensity | Pre-Exercise Nutrition | Post-Exercise Nutrition | Performance Impact |
+            |---------------|-------------------|----------------------|-------------------------|-------------------|
+            | [exercise] | [details] | [foods/timing] | [recovery nutrition] | [assessment] |
+            
+            #### CLINICAL RECOMMENDATIONS
+            **IMMEDIATE MODIFICATIONS:**
+            - [Urgent dietary changes needed]
+            - [Foods to avoid based on today's data]
+            - [Timing adjustments required]
+            
+            **ONGOING MANAGEMENT:**
+            - [Continued monitoring parameters]
+            - [Dietary pattern adjustments]
+            - [Lifestyle optimization strategies]
+            
+            **POSITIVE REINFORCEMENT:**
+            - [Well-managed aspects of diet/health]
+            - [Successful dietary compliance achievements]
+            - [Improved health metrics or symptoms]
+            
+            ## CLINICAL COMMUNICATION PROTOCOLS:
+            
+            ### FOR POSITIVE COMPLIANCE:
+            "Clinical Assessment: Excellent adherence to therapeutic dietary protocol observed. Current nutritional choices demonstrate effective management of [condition]. Continue current dietary strategy with [specific recommendations]."
+            
+            ### FOR CONCERNING PATTERNS:
+            "Clinical Alert: [Specific food/pattern] may be impacting [condition/symptom]. Recommend immediate modification: [specific change]. Monitor [specific parameter] closely."
+            
+            ### FOR NEUTRAL ASSESSMENTS:
+            "Clinical Status: Adequate nutritional intake with [specific areas] requiring optimization. Recommend [specific modifications] to enhance therapeutic outcomes."
+            
+            ## QUALITY STANDARDS:
+            - Use clinical terminology and evidence-based language
+            - Quantify all assessments with specific data points
+            - Connect all recommendations to clinical rationale
+            - Maintain professional medical documentation tone
+            - Focus on actionable, measurable outcomes
+            - Include relevant clinical references when appropriate
+            
+            ## CRITICAL ANALYSIS POINTS:
+            1. **Food-Condition Interactions**: Identify any consumed foods that may worsen existing medical conditions
+            2. **Nutritional Adequacy**: Assess if daily intake meets therapeutic and physiological needs
+            3. **Biometric Correlations**: Connect food choices to measurable health outcomes
+            4. **Activity Integration**: Evaluate nutrition timing and adequacy for exercise performance
+            5. **Trend Analysis**: Compare today's data to historical patterns for progression assessment
+            6. **Risk Assessment**: Identify potential health risks from current dietary patterns
+            7. **Therapeutic Compliance**: Monitor adherence to medical dietary recommendations
+            
+            **OUTPUT FORMAT**: Structured medical report suitable for healthcare professional review and patient care planning.
+            """),
         system_message=dedent("""\
-            You are a licensed nutritionist and dietitian.
-            Always review user's prior memory and log to provide insightful analysis.  
-            Maintain a professional, human tone — avoid sounding robotic or overly artificial.  
-            If no prior data exists, generate a well-tailored initial analysis using available user profile information and offer a sample daily meal plan, hydration tips, and basic activity guidance.
-    """), 
-        enable_agentic_memory=True,
+            You are a Clinical Assessment Specialist and Expert Nutritionist providing comprehensive patient health monitoring and analysis.
+            
+            Your expertise includes:
+            - Clinical nutrition assessment and therapeutic diet planning
+            - Medical condition-specific dietary management
+            - Biometric data interpretation and correlation analysis
+            - Evidence-based nutritional medicine protocols
+            - Risk assessment and clinical decision support
+            
+            Always maintain clinical objectivity, use evidence-based assessments, and provide actionable recommendations that support patient health outcomes and medical treatment goals.
+            """),
+        storage=agent_storage.USER_DAILY_LOG_SESSION_STORAGE,
+        memory=memory,
+        enable_user_memories=True,
         add_datetime_to_instructions=True,
         search_previous_sessions_history=True,
         markdown=True,
     )
+
     
 def meal_plan_agent():
     memory = get_memory_with_manager(
@@ -509,7 +663,7 @@ def meal_plan_agent():
             - **Include evidence-based rationale** for each recommendation
             - **Format like official medical documentation** with proper headers and signatures
         """),
-        storage=storage.USER_DAILY_LOG_SESSION_STORAGE,
+        storage=agent_storage.USER_DAILY_LOG_SESSION_STORAGE,
         memory=memory,
         system_message=dedent("""\
             You are a board-certified registered dietitian nutritionist (RDN) with 15+ years of clinical experience in medical nutrition therapy and cultural nutrition counseling. Your expertise spans acute care, chronic disease management, preventive nutrition, and culturally-responsive dietary interventions across diverse populations.

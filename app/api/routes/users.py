@@ -1,15 +1,31 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Request
 from sqlalchemy.orm import Session
 from typing import List
+import random
+import string
 
 from app.api.deps import get_db, get_current_user, get_current_admin_user
-from app.models.user import User, UserRole
+from app.models.user import User, UserRole, DietaryPreference, JoiningPurpose
 from app.schemas.user import User as UserSchema, UserCreate, UserUpdate
-from app.schemas.profile import ProfileUpdate
+from app.schemas.profile import ProfileUpdate, DietaryPreferenceList, JoiningPurposeList
 from app.services.user import create_user, get_user_by_email, get_user_by_username, get_user, update_user, get_users, UserServiceError
 from app.core.logging import logger
 
 router = APIRouter()
+
+@router.get("/dietary-preferences", response_model=DietaryPreferenceList)
+def get_dietary_preferences():
+    """
+    Get list of all dietary preferences
+    """
+    return DietaryPreferenceList()
+
+@router.get("/joining-purposes", response_model=JoiningPurposeList)
+def get_joining_purposes():
+    """
+    Get list of all purposes for joining
+    """
+    return JoiningPurposeList()
 
 @router.post("/", response_model=UserSchema, status_code=status.HTTP_201_CREATED)
 def create_new_user(
@@ -126,7 +142,7 @@ def read_all_users(
     skip: int = 0,
     limit: int = 100,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_admin_user),  # Only admins can access this endpoint
+    current_user: User = Depends(get_current_admin_user),
 ):
     """
     Get all users (admin only)
@@ -162,16 +178,24 @@ def update_user_profile(
     """
     try:
         # Convert ProfileUpdate to UserUpdate
-        user_update = UserUpdate(**profile_in.dict(exclude_unset=True))
+        update_data = profile_in.dict(exclude_unset=True)
         
+        # Calculate BMI if height and weight are provided
+        if profile_in.height and profile_in.weight:
+            height_m = profile_in.height / 100  # Convert cm to m
+            bmi = profile_in.weight / (height_m * height_m)
+            update_data['bmi'] = round(bmi, 2)
+            
+        user_update = UserUpdate(**update_data)
         user = update_user(db, current_user, user_update)
+        
         logger.info(
             f"User updated profile",
             extra={
                 "user_id": user.id,
                 "username": user.username,
                 "client_ip": request.client.host if request.client else None,
-                "fields_updated": list(profile_in.dict(exclude_unset=True).keys()),
+                "fields_updated": list(update_data.keys()),
             }
         )
         return user
@@ -183,6 +207,55 @@ def update_user_profile(
         )
     except Exception as e:
         logger.error(f"Unexpected error updating profile: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="An unexpected error occurred",
+        )
+
+@router.post("/randomize", response_model=UserSchema)
+def randomize_user_info(
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Update current user's email and username to random values
+    """
+    try:
+        # Generate random username (8 characters)
+        random_username = ''.join(random.choices(string.ascii_lowercase + string.digits, k=8))
+        
+        # Generate random email
+        random_email = f"{random_username}@example.com"
+        
+        # Create update data
+        user_update = UserUpdate(
+            username=random_username,
+            email=random_email
+        )
+        
+        # Update user
+        user = update_user(db, current_user, user_update)
+        
+        logger.info(
+            f"User randomized their info",
+            extra={
+                "user_id": user.id,
+                "old_username": current_user.username,
+                "new_username": user.username,
+                "client_ip": request.client.host if request.client else None,
+            }
+        )
+        return user
+        
+    except UserServiceError as e:
+        logger.error(f"Error randomizing user info: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Error updating user information",
+        )
+    except Exception as e:
+        logger.error(f"Unexpected error randomizing user info: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="An unexpected error occurred",

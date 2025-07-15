@@ -9,8 +9,9 @@ from app.core.logging import setup_logger
 # Set up logger
 logger = setup_logger()
 
-# Create database tables
-Base.metadata.create_all(bind=engine)
+# Import and call create_tables script
+from app.db.create_tables import create_all_tables
+create_all_tables()
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
