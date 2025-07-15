@@ -1,15 +1,20 @@
+from textwrap import dedent
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 from typing import Optional, List
 from datetime import datetime, date
 import json
 from fastapi import HTTPException, status
-
+from app.models.user import User
 from app.models.food_nutrition import MealEntry, MealType
 from app.schemas.meal_entry import MealEntryCreate, MealEntryUpdate
 from app.schemas.nutrition import FoodNutritionList
 from app.core.pagination import BasePaginator, PaginationResult
 from app.core.logging import logger
+from app.agents.agetns import meal_plan_agent
+from app.services.user import get_user
+from app.api.deps import get_db
+from app.utils.age_calculator import calculate_age
 
 class MealEntryServiceError(Exception):
     """Custom exception for meal entry service errors"""
@@ -421,3 +426,52 @@ def get_meal_entries_by_date(
     except Exception as e:
         logger.error(f"Error getting meal entries by date: {str(e)}")
         raise MealEntryServiceError(f"Error getting meal entries by date: {str(e)}")
+    
+async def create_meal_plan(
+    user_id: int,
+    session_id: str,
+):
+    """
+    Create a new meal plan for the user
+
+    Args:
+        user_id: User ID
+        session_id: Session ID
+    """
+    db_generator = get_db()
+    db = next(db_generator)
+    try:
+        user = get_user(db, user_id)
+        logger.info(
+            f"Creating meal plan for user {user.username} with session {session_id}"
+        )
+        today = datetime.now().date()
+        meal_planner = meal_plan_agent()
+        meal_plan = ""
+        age = calculate_age(user.dob)
+        message=f"""Generate a well defined meal plan for 7 days,
+            user name: {user.username},
+            gender: {user.gender},
+            age: {age},
+            profession:  {user.profession}
+            country: {user.country},
+            city:  {user.city},
+            date: {today}"
+          """
+        logger.info(
+            f"Meal plan message: {message}"
+        )
+        for chunk in meal_planner.run(
+            message=message,
+            user_id=user.id,
+            stream=True,
+        ):
+            if chunk is not None:
+                meal_plan += chunk.content
+                print(chunk.content, end="", flush=True)
+                
+        return {
+            "meal_plan": meal_plan,
+        }
+    finally:
+        db.close()

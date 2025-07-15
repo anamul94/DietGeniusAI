@@ -23,6 +23,7 @@ from app.services.meal_entry import (
     delete_meal_entry,
     check_meal_type_exists,
     save_nutrition_data_to_meal_entry,
+    create_meal_plan,
     MealEntryServiceError
 )
 from app.services.meal_types import get_meal_types_response
@@ -184,6 +185,29 @@ def check_meal_type(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Error checking meal type",
         )
+
+
+@router.post("/generate-meal-plan")
+async def generate_meal_plan(
+    cuurent_user: User = Depends(get_current_user),
+    session_id:str = Query(None, description="Session ID for tracking"),
+):
+    """
+    Generate a meal plan for the current user
+    """
+    try:
+        meal_plan = await create_meal_plan(
+            user_id=cuurent_user.id,
+            session_id=session_id)
+       
+        return meal_plan
+    except Exception as e:
+        logger.error(f"Error generating meal plan: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Error generating meal plan",
+        )
+
 
 @router.get("/{entry_id}", response_model=MealEntry)
 def get_meal_entry(
