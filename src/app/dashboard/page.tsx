@@ -156,7 +156,7 @@ export default function DashboardPage() {
             </CardContent>
           </Card>
 
-          {/* Health Insights Card (Placeholder for general insights) */}
+          {/* Health Insights Card */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -166,12 +166,28 @@ export default function DashboardPage() {
             </CardHeader>
             <CardContent>
               <p className="text-sm text-muted-foreground mb-4">
-                Get AI-powered insights based on your health profile and goals.
+                Get AI-powered insights based on your daily activity and nutrition data.
               </p>
-              <Button variant="outline" size="sm" className="w-full" onClick={() => router.push('/insights')}>
-                <Activity className="w-4 h-4 mr-2" />
-                View Insights
-              </Button>
+              <div className="space-y-2">
+                <Button
+                  variant="default"
+                  size="sm"
+                  className="w-full bg-blue-600 hover:bg-blue-700"
+                  onClick={() => router.push('/insights')}
+                >
+                  <Activity className="w-4 h-4 mr-2" />
+                  Generate New Insight
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full"
+                  onClick={() => router.push('/previous-insights')}
+                >
+                  <FileText className="w-4 h-4 mr-2" />
+                  View Previous Insights
+                </Button>
+              </div>
             </CardContent>
           </Card>
 
