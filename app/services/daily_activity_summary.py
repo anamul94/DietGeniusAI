@@ -1,6 +1,6 @@
 from textwrap import dedent
 from datetime import date, datetime, timezone, timedelta
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, AsyncGenerator
 from sqlalchemy.orm import Session
 from sqlalchemy import and_, func
 from collections import defaultdict
@@ -16,6 +16,13 @@ from app.schemas.daily_activity_summary import (
 
 from app.agents.agetns import assessment_agent
 from app.agents.utility_agent import report_representation_agent
+from app.services.meal_entry import get_meal_entries_by_date
+from app.services.ai_assessment_summary import create_or_update_ai_assessment_summary
+import json
+import asyncio
+from app.utils.sse_session import remove_connection
+
+
 
 
 async def fetch_and_process_daily_health_data(
@@ -314,7 +321,7 @@ async def daily_activity_assessment_by_ai_nutritionis(
     user_id: int,
     user_name: str,
     target_date: Optional[date] = None
-) -> dict:
+):
     """
     Generate AI-based assessment for user's daily activity and nutrition data.
     Fetches activity and food data for the specified date, gets AI assessment,
@@ -329,9 +336,6 @@ async def daily_activity_assessment_by_ai_nutritionis(
         dict: Contains date and summary
     """
     try:
-        from app.services.meal_entry import get_meal_entries_by_date
-        from app.services.ai_assessment_summary import create_or_update_ai_assessment_summary
-        
         # Use today if no target date provided
         if target_date is None:
             target_date = datetime.now().date()
@@ -423,3 +427,155 @@ async def daily_activity_assessment_by_ai_nutritionis(
     except Exception as e:
         logger.error(f"Error in daily_activity_assessment_by_ai_nutritionis: {str(e)}")
         raise
+    
+    
+    
+    
+###########**********STREAMING**********####################
+
+async def stream_daily_activity_assessment_by_ai_nutritionis(
+    db: Session,
+    user_id: int,
+    user_name: str,
+    target_date: Optional[date] = None,
+    sse_session_id: str = None
+):
+    """
+    Generate AI-based assessment for user's daily activity and nutrition data.
+    Fetches activity and food data for the specified date, gets AI assessment,
+    and saves the summary to the database.
+    
+    Args:
+        db: Database session
+        user_id: User ID
+        target_date: Date to assess (defaults to today)
+        
+    Returns:
+        dict: Contains date and summary
+    """
+    try:   
+        # Use today if no target date provided
+        if target_date is None:
+            target_date = datetime.now().date()
+        
+        logger.info(f"Starting AI assessment for user {user_id} on {target_date}")
+        
+        # Fetch daily activity summaries for the target date
+        daily_activity_summaries = await get_daily_activity_summaries(
+            db=db,
+            user_id=user_id,
+            start_date=target_date,
+            end_date=target_date
+        )
+        
+        # Fetch meal entries (food nutrition data) for the target date
+        meal_entries = get_meal_entries_by_date(
+            db=db,
+            user_id=user_id,
+            target_date=target_date
+        )
+        
+        # Prepare data for AI agent
+        activity_summary = {}
+        for activity in daily_activity_summaries:
+            activity_summary[activity.datatype] = {
+                "source": activity.source,
+                "values": activity.total_value,
+                "date": str(activity.date_value)
+            }
+        
+        nutrition_summary = []
+        for meal_entry in meal_entries:
+            nutrition_summary.append({
+                "meal_type": meal_entry.meal_type.value,
+                "foods": meal_entry.foods,
+                "consumed_at": str(meal_entry.consumed_at)
+            })
+        
+        if activity_summary is None:
+            activity_summary = {}
+        if nutrition_summary is None:
+            nutrition_summary = []
+        # Create message for AI agent
+        message = dedent(f"""\
+            User Name: {user_name}
+            Assessment Date: {target_date}
+            
+            Daily Activity Data:
+            {activity_summary}
+            
+            Nutrition Data (Meal Entries):
+            {nutrition_summary}
+            
+            Please provide a comprehensive health assessment based on the user's activity and nutrition data for this date.
+            Include insights about their physical activity levels, nutritional intake, and recommendations for improvement.
+        """)
+        
+        yield f"data: {json.dumps({'type': 'connected', 'message': 'Starting assessment generation...'})}\n\n"
+        await asyncio.sleep(0.1)
+        
+        # Send progress updates
+        yield f"data: {json.dumps({'type': 'progress', 'message': 'Initializing memory test agent...', 'progress': 10})}\n\n"
+        await asyncio.sleep(0.5)
+        
+        yield f"data: {json.dumps({'type': 'progress', 'message': 'Preparing assessment context...', 'progress': 30})}\n\n"
+        await asyncio.sleep(0.5)
+        
+        # yield f"data: {json.dumps({'type': 'progress', 'message': 'Generating AI assessment...', 'progress': 50})}\n\n"
+        
+        
+        # Get AI assessment
+        nutritionist_agent = assessment_agent()
+        summary = ""
+        chunk_index = 0
+        for chunk in nutritionist_agent.run(message=message, stream=True):
+            if chunk.content is not None:
+                summary += chunk.content
+                yield f"data: {json.dumps({'type': 'chunk', 'data': chunk.content, 'chunk_index': chunk_index})}\n\n"
+                print(chunk.content, end="", flush=True)
+                chunk_index += 1
+                
+        # docs_formater = report_representation_agent()
+        logger.info("**********************************************")
+        yield f"data: {json.dumps({'type': 'progress', 'message': 'Generating AI assessment...', 'progress': 70})}\n\n"
+        final_summary = ""
+        for chunk in report_representation_agent.run(message=summary, stream=True):
+            if chunk.content is not None:
+                yield f"data: {json.dumps({'type': 'chunk', 'data': chunk.content, 'chunk_index': chunk_index})}\n\n"
+                final_summary += chunk.content
+                print(chunk.content, end="", flush=True)
+                chunk_index += 1
+        
+        # Save summary to database
+        ai_summary = create_or_update_ai_assessment_summary(
+            db=db,
+            user_id=user_id,
+            target_date=target_date,
+            summary=final_summary
+        )
+        
+        logger.info(f"Successfully created AI assessment for user {user_id} on {target_date}")
+        yield f"data: {json.dumps({'type': 'progress', 'message': 'Finalizing assessment...', 'progress': 100})}\n\n"
+
+        # Send complete final response
+        final_response = {
+            'type': 'complete',
+            'date_value': target_date.isoformat(),
+            'summary': final_summary[:500] + "...",
+            'full_response': final_summary
+        }
+        yield f"data: {json.dumps(final_response)}\n\n"
+        
+        await asyncio.sleep(0.5)
+        
+    except Exception as e:
+        logger.error(f"Error in assessment streaming: {str(e)}")
+        error_response = {
+            'type': 'error',
+            'message': f"Error generating assessment: {str(e)}"
+        }
+        yield f"data: {json.dumps(error_response)}\n\n"
+    
+    finally:
+        # Clean up connection
+        remove_connection(session_id=sse_session_id)

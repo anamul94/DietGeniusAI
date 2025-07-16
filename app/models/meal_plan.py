@@ -1,6 +1,7 @@
 from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Date, Text, UniqueConstraint
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
+from sqlalchemy.inspection import inspect
 from app.db.base import Base
 
 class MealPlan(Base):
@@ -23,3 +24,13 @@ class MealPlan(Base):
     __table_args__ = (
         UniqueConstraint('user_id', 'plan_date', name='uq_user_meal_plan_date'),
     )
+    def to_dict(self):
+        data = {c.key: getattr(self, c.key) for c in inspect(self).mapper.column_attrs}
+        # Convert datetime/date fields to isoformat for JSON compatibility
+        if data.get("plan_date"):
+            data["plan_date"] = data["plan_date"].isoformat()
+        if data.get("created_at"):
+            data["created_at"] = data["created_at"].isoformat() if data["created_at"] else None
+        if data.get("updated_at"):
+            data["updated_at"] = data["updated_at"].isoformat() if data["updated_at"] else None
+        return data
