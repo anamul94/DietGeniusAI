@@ -26,6 +26,8 @@ export default function InsightsPage() {
   const [files, setFiles] = useState<File[]>([])
   const [uploading, setUploading] = useState(false)
   const [dragActive, setDragActive] = useState(false)
+  const [currentProgress, setCurrentProgress] = useState(0)
+  const [isStreaming, setIsStreaming] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const allowedTypes = ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'text/plain', 'text/markdown', 'image/jpeg', 'image/jpg', 'image/png', 'image/webp']
@@ -118,15 +120,77 @@ export default function InsightsPage() {
   const fetchInsight = async () => {
     setLoading(true)
     setError(null)
+    setInsight(null)
+    setCurrentProgress(0)
+    setIsStreaming(true)
+    
     try {
       const currentDate = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
-      const response = await apiCall(`/api/daily-activity/generate-assessment?target_date=${currentDate}`, { method: 'POST' });
-      setInsight(response.summary)
+      const token = localStorage.getItem('access_token');
+      
+      if (!token) {
+        setError('Authentication required. Please log in.');
+        setLoading(false);
+        setIsStreaming(false);
+        return;
+      }
+
+      // Generate session ID for SSE
+      const sessionId = `insights-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      
+      const eventSource = new EventSource(
+        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/daily-activity/stream/generate-assessment?target_date=${currentDate}&token=${token}&sse_session_id=${sessionId}`
+      );
+
+      let fullResponse = '';
+
+      eventSource.onmessage = (event) => {
+        const message = JSON.parse(event.data);
+        
+        switch (message.type) {
+          case 'connected':
+            console.log('SSE connection established');
+            break;
+            
+          case 'progress':
+            setCurrentProgress(message.progress || 0);
+            break;
+            
+          case 'chunk':
+            fullResponse += message.data;
+            setInsight(fullResponse);
+            break;
+            
+          case 'complete':
+            setInsight(message.full_response);
+            setCurrentProgress(100);
+            eventSource.close();
+            setLoading(false);
+            setIsStreaming(false);
+            break;
+            
+          case 'error':
+            setError(message.message || 'Failed to generate insights');
+            eventSource.close();
+            setLoading(false);
+            setIsStreaming(false);
+            break;
+        }
+      };
+
+      eventSource.onerror = (error) => {
+        console.error('SSE error:', error);
+        setError('Connection error. Please try again.');
+        setLoading(false);
+        setIsStreaming(false);
+        eventSource.close();
+      };
+
     } catch (err) {
-      console.error('Failed to fetch insight:', err)
-      setError('Failed to load insights. Please try again.')
-    } finally {
-      setLoading(false)
+      console.error('Failed to fetch insight:', err);
+      setError('Failed to load insights. Please try again.');
+      setLoading(false);
+      setIsStreaming(false);
     }
   }
 
@@ -181,11 +245,11 @@ export default function InsightsPage() {
           </CardHeader>
           <CardContent>
             <div className="flex justify-center mb-6">
-              <Button onClick={fetchInsight} disabled={loading}>
-                {loading ? (
+              <Button onClick={fetchInsight} disabled={loading || isStreaming}>
+                {loading || isStreaming ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Generating...
+                    {isStreaming ? 'Streaming...' : 'Generating...'}
                   </>
                 ) : (
                   <>
@@ -196,6 +260,21 @@ export default function InsightsPage() {
               </Button>
             </div>
 
+            {isStreaming && (
+              <div className="space-y-2 mb-4">
+                <div className="flex justify-between text-sm">
+                  <span>Progress</span>
+                  <span>{currentProgress}%</span>
+                </div>
+                <div className="w-full bg-gray-200 rounded-full h-2">
+                  <div
+                    className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                    style={{ width: `${currentProgress}%` }}
+                  />
+                </div>
+              </div>
+            )}
+
             {error && (
               <div className="text-center text-red-500 py-4">
                 <p>{error}</p>
@@ -204,10 +283,10 @@ export default function InsightsPage() {
 
             {insight ? (
               <div className="prose max-w-none">
-                <ReactMarkdown>{insight}</ReactMarkdown>
+                <ReactMarkdown remarkPlugins={[remarkGfm]}>{insight}</ReactMarkdown>
               </div>
             ) : (
-              !loading && !error && (
+              !loading && !error && !isStreaming && (
                 <p className="text-gray-500 text-center py-8">Click "Generate Insights" to get your AI-powered health summary.</p>
               )
             )}
