@@ -219,14 +219,28 @@ export default function DashboardPage() {
             </CardHeader>
             <CardContent>
               <p className="text-sm text-muted-foreground mb-4">
-                Generate and view your personalized AI-powered meal plans.
+                Generate and view your personalized AI-powered meal plans with real-time streaming.
               </p>
-              <Button variant="outline" size="sm" className="w-full mb-2" onClick={() => router.push('/meal-plan?mode=generate')}>
-                Generate New Meal Plan
-              </Button>
-              <Button variant="outline" size="sm" className="w-full" onClick={() => router.push('/meal-plan?mode=latest')}>
-                View Latest Meal Plan
-              </Button>
+              <div className="space-y-2">
+                <Button 
+                  variant="default"
+                  size="sm" 
+                  className="w-full bg-blue-600 hover:bg-blue-700"
+                  onClick={() => router.push('/meal-plan-streaming')}
+                >
+                  <Brain className="w-4 h-4 mr-2" />
+                  Generate New Meal Plan
+                </Button>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="w-full"
+                  onClick={() => router.push('/meal-plan-streaming')}
+                >
+                  <Brain className="w-4 h-4 mr-2" />
+                  View Latest Meal Plan
+                </Button>
+              </div>
             </CardContent>
           </Card>
 
