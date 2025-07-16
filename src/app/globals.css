@@ -1,88 +1,250 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Playfair+Display:wght@400;500;600;700&family=Source+Sans+3:wght@300;400;600;700&display=swap');
+@import '../styles/variables.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
   :root {
+    /* Enhanced color system for nutrition/AI theme */
+    --emerald-primary: 142 76% 36%;
+    --emerald-primary-light: 142 76% 45%;
+    --emerald-primary-dark: 142 76% 30%;
+    
+    --sage-secondary: 120 20% 90%;
+    --sage-secondary-light: 120 20% 95%;
+    --sage-secondary-dark: 120 20% 80%;
+    
+    --coral-accent: 15 80% 50%;
+    --gold-accent: 45 85% 50%;
+    --lavender-accent: 260 80% 70%;
+    
+    --slate-50: 220 20% 98%;
+    --slate-100: 220 15% 95%;
+    --slate-200: 220 10% 90%;
+    --slate-300: 220 8% 85%;
+    --slate-400: 220 6% 70%;
+    --slate-500: 220 5% 55%;
+    --slate-600: 220 8% 45%;
+    --slate-700: 220 10% 35%;
+    --slate-800: 220 15% 25%;
+    --slate-900: 220 20% 15%;
+    
+    --success: 142 70% 45%;
+    --warning: 38 90% 50%;
+    --error: 0 70% 60%;
+    --info: 200 80% 55%;
+    
+    /* Shadcn UI variables */
     --background: 0 0% 100%;
     --foreground: 222.2 84% 4.9%;
-
     --muted: 210 40% 96.1%;
     --muted-foreground: 215.4 16.3% 46.9%;
-
     --popover: 0 0% 100%;
     --popover-foreground: 222.2 84% 4.9%;
-
     --border: 214.3 31.8% 91.4%;
     --input: 214.3 31.8% 91.4%;
-
     --card: 0 0% 100%;
     --card-foreground: 222.2 84% 4.9%;
-
     --primary: 142.1 76.2% 36.3%;
     --primary-foreground: 355.7 100% 97.3%;
-
     --secondary: 210 40% 96.1%;
     --secondary-foreground: 222.2 47.4% 11.2%;
-
     --accent: 210 40% 96.1%;
     --accent-foreground: 222.2 47.4% 11.2%;
-
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 210 40% 98%;
-
     --ring: 142.1 76.2% 36.3%;
-
     --radius: 0.5rem;
   }
 
   .dark {
+    --emerald-primary: 142 70% 45%;
+    --emerald-primary-light: 142 70% 55%;
+    --emerald-primary-dark: 142 70% 35%;
+    
+    --sage-secondary: 120 20% 20%;
+    --sage-secondary-light: 120 20% 25%;
+    --sage-secondary-dark: 120 20% 15%;
+    
+    --coral-accent: 15 70% 60%;
+    --gold-accent: 45 75% 55%;
+    --lavender-accent: 260 70% 75%;
+    
+    --slate-50: 220 20% 8%;
+    --slate-100: 220 15% 10%;
+    --slate-200: 220 10% 15%;
+    --slate-300: 220 8% 25%;
+    --slate-400: 220 6% 35%;
+    --slate-500: 220 5% 45%;
+    --slate-600: 220 8% 55%;
+    --slate-700: 220 10% 65%;
+    --slate-800: 220 15% 75%;
+    --slate-900: 220 20% 85%;
+    
     --background: 222.2 84% 4.9%;
     --foreground: 210 40% 96.1%;
-
     --muted: 217.2 32.6% 17.5%;
     --muted-foreground: 215 20.2% 65.1%;
-
     --popover: 222.2 84% 4.9%;
     --popover-foreground: 210 40% 96.1%;
-
     --border: 217.2 32.6% 17.5%;
     --input: 217.2 32.6% 17.5%;
-
     --card: 222.2 84% 4.9%;
     --card-foreground: 210 40% 96.1%;
-
     --primary: 142.1 70.6% 45.3%;
     --primary-foreground: 144.9 80.4% 10%;
-
     --secondary: 217.2 32.6% 17.5%;
     --secondary-foreground: 210 40% 96.1%;
-
     --accent: 217.2 32.6% 17.5%;
     --accent-foreground: 210 40% 96.1%;
-
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 210 40% 96.1%;
-
     --ring: 142.1 70.6% 45.3%;
+  }
+
+  * {
+    @apply border-border;
   }
 
   body {
     @apply bg-background text-foreground;
-    font-family: var(--font-inter), system-ui, sans-serif;
+    font-family: var(--font-sans), system-ui, sans-serif;
+    font-feature-settings: "rlig" 1, "calt" 1;
     min-height: 100vh;
+    line-height: 1.6;
+  }
+
+  /* Custom scrollbar */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  ::-webkit-scrollbar-track {
+    @apply bg-slate-100 dark:bg-slate-800;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    @apply bg-slate-300 dark:bg-slate-600 rounded-full;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-slate-400 dark:bg-slate-500;
   }
 }
 
 @layer components {
   .container {
-    @apply max-w-6xl mx-auto px-4;
+    @apply max-w-7xl mx-auto px-4 sm:px-6 lg:px-8;
   }
-  
+
+  .container-sm {
+    @apply max-w-3xl mx-auto px-4 sm:px-6 lg:px-8;
+  }
+
+  .container-xs {
+    @apply max-w-xl mx-auto px-4 sm:px-6 lg:px-8;
+  }
+
+  /* Medical pattern background */
   .medical-pattern {
     background-image: 
       radial-gradient(circle at 25px 25px, rgba(34, 197, 94, 0.1) 2px, transparent 2px),
       radial-gradient(circle at 75px 75px, rgba(59, 130, 246, 0.1) 2px, transparent 2px);
     background-size: 100px 100px;
+  }
+
+  /* Gradient backgrounds */
+  .gradient-bg {
+    background: linear-gradient(
+      135deg,
+      hsl(var(--emerald-primary) / 0.1) 0%,
+      hsl(var(--coral-accent) / 0.1) 50%,
+      hsl(var(--gold-accent) / 0.1) 100%
+    );
+  }
+
+  .gradient-text {
+    background: linear-gradient(
+      135deg,
+      hsl(var(--emerald-primary)) 0%,
+      hsl(var(--coral-accent)) 100%
+    );
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  /* Glass effect */
+  .glass-effect {
+    @apply bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm border border-slate-200/50 dark:border-slate-700/50;
+  }
+
+  /* Card styles */
+  .card {
+    @apply rounded-xl border bg-card text-card-foreground shadow-sm transition-all duration-250 hover:shadow-md;
+  }
+
+  /* Button styles */
+  .btn-primary {
+    @apply inline-flex items-center justify-center rounded-lg bg-emerald-primary text-white font-medium transition-all duration-250 hover:bg-emerald-primary/90 focus:outline-none focus:ring-2 focus:ring-emerald-primary focus:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none;
+  }
+
+  .btn-secondary {
+    @apply inline-flex items-center justify-center rounded-lg bg-sage-secondary text-slate-800 font-medium transition-all duration-250 hover:bg-sage-secondary/80 focus:outline-none focus:ring-2 focus:ring-sage-secondary focus:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none;
+  }
+
+  .btn-ghost {
+    @apply inline-flex items-center justify-center rounded-lg text-slate-700 font-medium transition-all duration-250 hover:bg-slate-100 hover:text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-500 focus:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none;
+  }
+
+  /* Input styles */
+  .input {
+    @apply flex h-10 w-full rounded-lg border border-slate-200 bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-primary focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 transition-colors duration-250;
+  }
+
+  /* Animation utilities */
+  .animate-fade-in {
+    animation: fadeIn 0.25s ease-out;
+  }
+
+  .animate-slide-up {
+    animation: slideUp 0.25s ease-out;
+  }
+
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes slideUp {
+    from {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  /* Focus styles */
+  .focus-visible {
+    @apply focus:outline-none focus:ring-2 focus:ring-emerald-primary focus:ring-offset-2;
+  }
+
+  /* Responsive utilities */
+  @media (max-width: 640px) {
+    .container {
+      @apply px-4;
+    }
   }
 }

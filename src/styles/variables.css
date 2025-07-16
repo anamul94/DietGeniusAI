@@ -1,0 +1,246 @@
+/**
+ * CSS Custom Properties (Variables)
+ * Centralized design tokens for the NutriGenius application
+ */
+
+:root {
+  /* ===== COLOR SYSTEM ===== */
+  
+  /* Primary Brand Colors - Nutrition/AI Theme */
+  --color-emerald-50: 142 80% 95%;
+  --color-emerald-100: 142 76% 90%;
+  --color-emerald-200: 142 76% 80%;
+  --color-emerald-300: 142 76% 70%;
+  --color-emerald-400: 142 76% 60%;
+  --color-emerald-500: 142 76% 50%;
+  --color-emerald-600: 142 76% 40%;
+  --color-emerald-700: 142 76% 30%;
+  --color-emerald-800: 142 76% 20%;
+  --color-emerald-900: 142 76% 10%;
+  
+  /* Secondary Sage Colors */
+  --color-sage-50: 120 25% 95%;
+  --color-sage-100: 120 20% 90%;
+  --color-sage-200: 120 20% 80%;
+  --color-sage-300: 120 20% 70%;
+  --color-sage-400: 120 20% 60%;
+  --color-sage-500: 120 20% 50%;
+  --color-sage-600: 120 20% 40%;
+  --color-sage-700: 120 20% 30%;
+  --color-sage-800: 120 20% 20%;
+  --color-sage-900: 120 20% 10%;
+  
+  /* Accent Colors */
+  --color-coral-50: 15 80% 95%;
+  --color-coral-100: 15 80% 90%;
+  --color-coral-200: 15 80% 80%;
+  --color-coral-300: 15 80% 70%;
+  --color-coral-400: 15 80% 60%;
+  --color-coral-500: 15 80% 50%;
+  --color-coral-600: 15 80% 40%;
+  --color-coral-700: 15 80% 30%;
+  --color-coral-800: 15 80% 20%;
+  --color-coral-900: 15 80% 10%;
+  
+  --color-gold-50: 45 85% 95%;
+  --color-gold-100: 45 85% 90%;
+  --color-gold-200: 45 85% 80%;
+  --color-gold-300: 45 85% 70%;
+  --color-gold-400: 45 85% 60%;
+  --color-gold-500: 45 85% 50%;
+  --color-gold-600: 45 85% 40%;
+  --color-gold-700: 45 85% 30%;
+  --color-gold-800: 45 85% 20%;
+  --color-gold-900: 45 85% 10%;
+  
+  /* Neutral Slate Colors */
+  --color-slate-50: 220 20% 98%;
+  --color-slate-100: 220 15% 95%;
+  --color-slate-200: 220 10% 90%;
+  --color-slate-300: 220 8% 85%;
+  --color-slate-400: 220 6% 70%;
+  --color-slate-500: 220 5% 55%;
+  --color-slate-600: 220 8% 45%;
+  --color-slate-700: 220 10% 35%;
+  --color-slate-800: 220 15% 25%;
+  --color-slate-900: 220 20% 15%;
+  
+  /* Semantic Colors */
+  --color-success: 142 70% 45%;
+  --color-warning: 38 90% 50%;
+  --color-error: 0 70% 60%;
+  --color-info: 200 80% 55%;
+  
+  /* ===== TYPOGRAPHY SYSTEM ===== */
+  
+  /* Font Families */
+  --font-family-sans: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-family-serif: 'Playfair Display', Georgia, 'Times New Roman', serif;
+  --font-family-mono: 'Source Sans 3', 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', monospace;
+  
+  /* Font Weights */
+  --font-weight-thin: 100;
+  --font-weight-light: 300;
+  --font-weight-normal: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+  --font-weight-extrabold: 800;
+  --font-weight-black: 900;
+  
+  /* Font Sizes */
+  --font-size-xs: 0.75rem;
+  --font-size-sm: 0.875rem;
+  --font-size-base: 1rem;
+  --font-size-lg: 1.125rem;
+  --font-size-xl: 1.25rem;
+  --font-size-2xl: 1.5rem;
+  --font-size-3xl: 1.875rem;
+  --font-size-4xl: 2.25rem;
+  --font-size-5xl: 3rem;
+  --font-size-6xl: 3.75rem;
+  --font-size-7xl: 4.5rem;
+  
+  /* Line Heights */
+  --line-height-none: 1;
+  --line-height-tight: 1.25;
+  --line-height-snug: 1.375;
+  --line-height-normal: 1.5;
+  --line-height-relaxed: 1.625;
+  --line-height-loose: 2;
+  
+  /* Letter Spacing */
+  --letter-spacing-tighter: -0.05em;
+  --letter-spacing-tight: -0.025em;
+  --letter-spacing-normal: 0;
+  --letter-spacing-wide: 0.025em;
+  --letter-spacing-wider: 0.05em;
+  --letter-spacing-widest: 0.1em;
+  
+  /* ===== SPACING SYSTEM ===== */
+  
+  --spacing-0: 0;
+  --spacing-px: 1px;
+  --spacing-05: 0.125rem;
+  --spacing-1: 0.25rem;
+  --spacing-15: 0.375rem;
+  --spacing-2: 0.5rem;
+  --spacing-25: 0.625rem;
+  --spacing-3: 0.75rem;
+  --spacing-35: 0.875rem;
+  --spacing-4: 1rem;
+  --spacing-5: 1.25rem;
+  --spacing-6: 1.5rem;
+  --spacing-7: 1.75rem;
+  --spacing-8: 2rem;
+  --spacing-9: 2.25rem;
+  --spacing-10: 2.5rem;
+  --spacing-11: 2.75rem;
+  --spacing-12: 3rem;
+  --spacing-14: 3.5rem;
+  --spacing-16: 4rem;
+  --spacing-20: 5rem;
+  --spacing-24: 6rem;
+  --spacing-28: 7rem;
+  --spacing-32: 8rem;
+  --spacing-36: 9rem;
+  --spacing-40: 10rem;
+  --spacing-44: 11rem;
+  --spacing-48: 12rem;
+  --spacing-52: 13rem;
+  --spacing-56: 14rem;
+  --spacing-60: 15rem;
+  --spacing-64: 16rem;
+  --spacing-72: 18rem;
+  --spacing-80: 20rem;
+  --spacing-96: 24rem;
+  
+  /* ===== BORDER RADIUS SYSTEM ===== */
+  
+  --radius-none: 0;
+  --radius-sm: 0.125rem;
+  --radius-md: 0.375rem;
+  --radius-lg: 0.5rem;
+  --radius-xl: 0.75rem;
+  --radius-2xl: 1rem;
+  --radius-3xl: 1.5rem;
+  --radius-full: 9999px;
+  
+  /* ===== SHADOW SYSTEM ===== */
+  
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+  --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+  --shadow-2xl: 0 25px 50px -12px rgb(0 0 0 / 0.25);
+  --shadow-inner: inset 0 2px 4px 0 rgb(0 0 0 / 0.05);
+  --shadow-none: 0 0 #0000;
+  
+  /* ===== TRANSITION SYSTEM ===== */
+  
+  --transition-none: none;
+  --transition-all: all 150ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-colors: background-color, border-color, color, fill, stroke 150ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-opacity: opacity 150ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-shadow: box-shadow 150ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-transform: transform 150ms cubic-bezier(0.4, 0, 0.2, 1);
+  
+  --duration-75: 75ms;
+  --duration-100: 100ms;
+  --duration-150: 150ms;
+  --duration-200: 200ms;
+  --duration-300: 300ms;
+  --duration-500: 500ms;
+  --duration-700: 700ms;
+  --duration-1000: 1000ms;
+  
+  /* ===== Z-INDEX SYSTEM ===== */
+  
+  --z-0: 0;
+  --z-10: 10;
+  --z-20: 20;
+  --z-30: 30;
+  --z-40: 40;
+  --z-50: 50;
+  --z-auto: auto;
+  
+  --z-dropdown: 1000;
+  --z-sticky: 1020;
+  --z-fixed: 1030;
+  --z-modal-backdrop: 1040;
+  --z-modal: 1050;
+  --z-popover: 1060;
+  --z-tooltip: 1070;
+  
+  /* ===== COMPONENT-SPECIFIC VARIABLES ===== */
+  
+  /* Button Colors */
+  --button-primary-bg: var(--color-emerald-500);
+  --button-primary-hover: var(--color-emerald-600);
+  --button-primary-text: white;
+  
+  --button-secondary-bg: var(--color-sage-100);
+  --button-secondary-hover: var(--color-sage-200);
+  --button-secondary-text: var(--color-slate-800);
+  
+  --button-ghost-hover: var(--color-slate-100);
+  --button-ghost-text: var(--color-slate-700);
+  
+  /* Input Colors */
+  --input-bg: white;
+  --input-border: var(--color-slate-200);
+  --input-border-focus: var(--color-emerald-500);
+  --input-placeholder: var(--color-slate-500);
+  --input-text: var(--color-slate-900);
+  
+  /* Card Colors */
+  --card-bg: white;
+  --card-border: var(--color-slate-200);
+  --card-shadow: var(--shadow-sm);
+  
+  /* Navigation Colors */
+  --nav-bg: white;
+  --nav-border: var(--color-slate-200);
+  --nav-text: var(--color-slate-700);
+  --nav-text-active: var(--color-emerald-600);
+}
