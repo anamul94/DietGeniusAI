@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import GoogleLogin from '@/components/auth/GoogleLogin'
+import { PageWrapper, LoadingState } from '@/components/layout/PageWrapper'
 
 export default function Home() {
   const [loading, setLoading] = useState(true)
@@ -27,11 +28,29 @@ export default function Home() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="w-16 h-16 border-4 border-green-500 border-t-transparent rounded-full animate-spin"></div>
-      </div>
+      <PageWrapper background="gradient" showPattern>
+        <LoadingState message="Checking authentication..." />
+      </PageWrapper>
     )
   }
 
-  return <GoogleLogin />
+  return (
+    <PageWrapper 
+      background="gradient" 
+      showPattern
+      className="flex items-center justify-center"
+    >
+      <div className="w-full max-w-md">
+        <div className="text-center mb-8">
+          <h1 className="text-4xl md:text-5xl font-bold text-slate-900 dark:text-slate-50 mb-4">
+            Welcome to <span className="gradient-text">NutriGenius</span>
+          </h1>
+          <p className="text-lg text-slate-600 dark:text-slate-400">
+            AI-powered nutrition guidance tailored to your unique health profile
+          </p>
+        </div>
+        <GoogleLogin />
+      </div>
+    </PageWrapper>
+  )
 }
