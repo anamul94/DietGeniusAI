@@ -18,7 +18,8 @@ from app.services.daily_activity_summary import (
     process_daily_health_data_by_date,
     get_daily_activity_summaries,
     fetch_and_process_daily_health_data,
-    daily_activity_assessment_by_ai_nutritionis
+    daily_activity_assessment_by_ai_nutritionis,
+    stream_daily_activity_assessment_by_ai_nutritionis,
 )
 from app.services.ai_assessment_summary import (
     get_today_ai_assessment_summary,
@@ -26,6 +27,10 @@ from app.services.ai_assessment_summary import (
     get_ai_assessment_summary_by_date
 )
 from app.core.logging import logger
+from fastapi.responses import StreamingResponse
+from app.api.deps import get_db, get_current_user_from_token
+from app.utils.sse_session import add_connection
+
 
 router = APIRouter()
 
@@ -508,3 +513,46 @@ async def get_daily_summaries_by_date(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error fetching daily summaries: {str(e)}"
         )
+        
+        
+@router.get("/stream/generate-assessment")
+async def generate_daily_assessment_stream(
+    target_date: Optional[date] = Query(
+        default=None,
+        description="Target date for assessment (defaults to today)",
+        example="2025-07-15"
+    ),
+    db: Session = Depends(get_db),
+    token: str = Query(..., description="JWT token for authentication"),
+    sse_session_id: str = Query(..., description="Session ID for SSE"),
+        ):
+    try:
+        current_user = get_current_user_from_token(token,db)
+    except Exception as e:
+        raise HTTPException(status_code=401, detail="Invalid token")
+    
+    add_connection(session_id=sse_session_id)
+    
+    return StreamingResponse(
+        stream_daily_activity_assessment_by_ai_nutritionis(
+            db=db,
+            user_id=current_user.id,
+            user_name=current_user.username,
+            target_date=target_date,
+            sse_session_id=sse_session_id
+        ),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Headers": "Authorization, Content-Type",
+            "Access-Control-Allow-Methods": "GET, OPTIONS",
+            "Access-Control-Allow-Credentials": "true",
+        }
+    )
+    
+    
+    
+    
+    

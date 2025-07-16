@@ -52,9 +52,10 @@ async def websocket_endpoint(websocket: WebSocket, user_id: str, token: str):
             try:
                 for chunk in agent.run(
                     message=data,
-                ):
-                    
-                    message = {"type": "chunk", "data": chunk, "from": "server"}
+                    stream=True,
+                ):   
+                    print(chunk.content)
+                    message = {"type": "chunk", "data": chunk.content, "from": "server"}
                     await manager.send_personal_message(message, str(user_id))
                 # message = {"type": "echo", "data": data, "from": "server"}
                 await manager.send_personal_message(message, str(user_id))
