@@ -21,7 +21,6 @@ export default function AssessmentStreaming({ apiUrl = 'http://localhost:8000/ap
   const [finalAssessment, setFinalAssessment] = useState<any>(null);
   const [currentProgress, setCurrentProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
-  const [eventSource, setEventSource] = useState<EventSource | null>(null);
 
   // Generate unique session ID
   useEffect(() => {
@@ -31,13 +30,11 @@ export default function AssessmentStreaming({ apiUrl = 'http://localhost:8000/ap
   const startAssessment = async () => {
     if (!targetDate || !sessionId) return;
     
-    // Reset state only if not already generating
-    if (!isGenerating) {
-      setChunks([]);
-      setFinalAssessment(null);
-      setCurrentProgress(0);
-      setError(null);
-    }
+    // Reset state
+    setChunks([]);
+    setFinalAssessment(null);
+    setCurrentProgress(0);
+    setError(null);
     setIsGenerating(true);
     
     // Check for authentication
@@ -48,65 +45,35 @@ export default function AssessmentStreaming({ apiUrl = 'http://localhost:8000/ap
       return;
     }
     
-    // Test authentication first
-    try {
-      const authTest = await fetch(`${apiUrl}/assessment-streaming/test-auth?token=${token}`);
-      if (!authTest.ok) {
-        const errorData = await authTest.json();
-        setError(`Authentication failed: ${errorData.detail || 'Please log in again'}`);
-        setIsGenerating(false);
-        return;
-      }
-      
-      console.log('Authentication successful');
-    } catch (err) {
-      setError('Cannot connect to server - please check your connection');
-      setIsGenerating(false);
-      return;
-    }
+    // Import SSE manager
+    const { SSEConnectionManager } = await import('@/lib/sse-manager');
+    const manager = new SSEConnectionManager();
     
-    // Connect to SSE using token in URL
-    try {
-      const url = `${apiUrl}/assessment-streaming/stream-assessment?session_id=${sessionId}&target_date=${format(targetDate, 'yyyy-MM-dd')}&token=${token}`;
-      
-      console.log('Connecting to SSE:', url);
-      
-      const es = new EventSource(url);
-      
-      es.onopen = () => {
-        console.log('SSE connection opened');
+    const url = `${apiUrl}/assessment-streaming/stream-assessment?session_id=${sessionId}&target_date=${format(targetDate, 'yyyy-MM-dd')}&token=${token}`;
+    
+    const success = await manager.connect({
+      url,
+      onMessage: (message) => {
+        console.log('Received message:', message.type);
+        handleStreamMessage(message);
+      },
+      onError: (errorMessage) => {
+        console.error('SSE Error:', errorMessage);
+        setError(errorMessage);
+        setIsGenerating(false);
+      },
+      onOpen: () => {
+        console.log('SSE connection established');
         setError(null);
-      };
-      
-      es.onmessage = (event) => {
-        try {
-          const message = JSON.parse(event.data);
-          console.log('Received message:', message.type);
-          handleStreamMessage(message);
-        } catch (err) {
-          console.error('Error parsing SSE message:', err);
-          setError('Error processing server response');
-        }
-      };
-      
-      es.onerror = (error) => {
-        console.error('SSE error:', error);
-        // Only show connection error if we're still expecting data and haven't completed
-        if (isGenerating && !finalAssessment) {
-          setError('Connection lost - please try again');
-          setIsGenerating(false);
-        } else if (!finalAssessment) {
-          // Connection closed normally, don't show error
-          console.log('SSE connection closed normally');
-        }
-        es.close();
-      };
-      
-      setEventSource(es);
-      
-    } catch (err) {
-      console.error('Failed to start assessment:', err);
-      setError('Failed to start assessment - please check your connection');
+      },
+      onClose: () => {
+        console.log('SSE connection closed');
+        setIsGenerating(false);
+      },
+      timeout: 8000
+    });
+    
+    if (!success) {
       setIsGenerating(false);
     }
   };
@@ -137,19 +104,11 @@ export default function AssessmentStreaming({ apiUrl = 'http://localhost:8000/ap
         setCurrentProgress(100);
         setError(null); // Clear any previous errors
         setChunks([]); // Clear chunks to show only final response
-        if (eventSource) {
-          eventSource.close();
-          setEventSource(null);
-        }
         break;
       
       case 'error':
         setError(message.message || 'An error occurred');
         setIsGenerating(false);
-        if (eventSource) {
-          eventSource.close();
-          setEventSource(null);
-        }
         break;
     }
   };
@@ -160,11 +119,6 @@ export default function AssessmentStreaming({ apiUrl = 'http://localhost:8000/ap
     setCurrentProgress(0);
     setError(null);
     setIsGenerating(false);
-    
-    if (eventSource) {
-      eventSource.close();
-      setEventSource(null);
-    }
     
     // Generate new session ID
     setSessionId(`session-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`);
@@ -281,9 +235,6 @@ export default function AssessmentStreaming({ apiUrl = 'http://localhost:8000/ap
                   className="bg-blue-600 h-2 rounded-full transition-all duration-300" 
                   style={{ width: `${currentProgress}%` }}
                 />
-              </div>
-              <div className="text-sm text-gray-500">
-                Status: {eventSource ? 'Connected' : 'Connecting...'}
               </div>
             </div>
           )}

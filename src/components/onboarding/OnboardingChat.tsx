@@ -1,12 +1,14 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
+import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/Card'
 import { apiCall } from '@/lib/utils'
-import { Send, Bot, User, Mic, StopCircle, Play, Pause } from 'lucide-react'
+import { Send, Bot, User } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
+import DynamicQuestion, { type Question } from './DynamicQuestion'
 
 interface ChatMessage {
   question: string
@@ -17,24 +19,26 @@ interface OnboardingChatProps {
   onComplete: () => void
 }
 
+interface NutritionistQAResponse {
+  questions: Question[]
+  is_complete: boolean
+  message_on_completion?: string
+  count: number
+}
+
 export default function OnboardingChat({ onComplete }: OnboardingChatProps) {
+  const router = useRouter()
   const [messages, setMessages] = useState<ChatMessage[]>([])
-  const [currentQuestion, setCurrentQuestion] = useState('')
-  const [userAnswer, setUserAnswer] = useState('')
+  const [currentQuestions, setCurrentQuestions] = useState<Question[]>([])
+  const [currentAnswers, setCurrentAnswers] = useState<Record<string, string>>({})
   const [loading, setLoading] = useState(false)
   const [count, setCount] = useState(0)
   const [isComplete, setIsComplete] = useState(false)
   const [showInitialLoadingMessage, setShowInitialLoadingMessage] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [questionKey, setQuestionKey] = useState(0)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const initialized = useRef(false)
-
-  // Voice recording states
-  const [isRecording, setIsRecording] = useState(false)
-  const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(null)
-  const [audioBlob, setAudioBlob] = useState<Blob | null>(null)
-  const [audioUrl, setAudioUrl] = useState<string | null>(null)
-  const audioRef = useRef<HTMLAudioElement>(null)
-  const [isPlaying, setIsPlaying] = useState(false)
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -42,7 +46,7 @@ export default function OnboardingChat({ onComplete }: OnboardingChatProps) {
 
   useEffect(() => {
     scrollToBottom()
-  }, [messages, currentQuestion])
+  }, [messages, currentQuestions])
 
   useEffect(() => {
     // Initialize first question
@@ -55,164 +59,135 @@ export default function OnboardingChat({ onComplete }: OnboardingChatProps) {
   const initializeChat = async () => {
     setLoading(true)
     setShowInitialLoadingMessage(true)
+    setError(null)
     try {
       const response = await apiCall('/api/medical-reports/onboarding-qa', {
         method: 'POST',
         body: JSON.stringify({
-          answer: '',
-          count: 0,
-          chat_history: []
+          qa: [], // Empty array for initial request
+          count: 0
         })
       })
       
-      setCurrentQuestion(response.question)
-      setCount(response.count)
+      // Parse the response to handle both old and new formats
+      let questions: Question[] = []
+      if (response.questions && Array.isArray(response.questions)) {
+        questions = response.questions
+      } else if (response.question) {
+        // Handle old format - convert to new format
+        questions = [{
+          question_text: response.question,
+          input_type: 'textinput',
+          placeholder: 'Type your answer...'
+        }]
+      }
+      
+      setCurrentQuestions(questions)
+      setCount(response.count || 0)
+      setIsComplete(response.is_complete || false)
     } catch (error) {
       console.error('Failed to initialize chat:', error)
+      setError('Failed to initialize chat. Please try again.')
     } finally {
       setLoading(false)
       setShowInitialLoadingMessage(false)
     }
   }
 
-  const startRecording = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
-      const recorder = new MediaRecorder(stream)
-      setMediaRecorder(recorder)
-      setIsRecording(true)
-      setAudioBlob(null)
-      setAudioUrl(null)
-
-      const audioChunks: Blob[] = []
-      recorder.ondataavailable = (event) => {
-        audioChunks.push(event.data)
-      }
-
-      recorder.onstop = () => {
-        const blob = new Blob(audioChunks, { type: 'audio/webm' })
-        setAudioBlob(blob)
-        setAudioUrl(URL.createObjectURL(blob))
-        stream.getTracks().forEach(track => track.stop())
-      }
-
-      recorder.start()
-    } catch (error) {
-      console.error('Error starting recording:', error)
-      alert('Could not start recording. Please ensure microphone access is granted.')
-    }
-  }
-
-  const stopRecording = () => {
-    if (mediaRecorder && isRecording) {
-      mediaRecorder.stop()
-      setIsRecording(false)
-    }
-  }
-
-  const playAudio = () => {
-    if (audioRef.current && audioUrl) {
-      audioRef.current.play()
-      setIsPlaying(true)
-      audioRef.current.onended = () => setIsPlaying(false)
-    }
-  }
-
-  const pauseAudio = () => {
-    if (audioRef.current) {
-      audioRef.current.pause()
-      setIsPlaying(false)
-    }
-  }
-
-  const transcribeAudio = async () => {
-    if (!audioBlob) return
-
-    setLoading(true)
-    try {
-      const formData = new FormData()
-      formData.append('file', audioBlob, 'audio.webm')
-
-      const response = await fetch(process.env.NEXT_PUBLIC_TRANSCRIPTION_API_URL as string, {
-        method: 'POST',
-        body: formData,
-      })
-
-      if (!response.ok) {
-        let errorDetail = `Transcription API Error: ${response.status}`
-        try {
-          const errorData = await response.json()
-          errorDetail += ` - ${errorData.detail || JSON.stringify(errorData)}`
-        } catch (jsonError) {
-          const errorText = await response.text()
-          errorDetail += ` - Raw Response: ${errorText}`
-        }
-        console.error('Transcription API Error:', errorDetail)
-        throw new Error(errorDetail)
-      }
-
-      const data = await response.json()
-      setUserAnswer(data.transcription)
-    } catch (error) {
-      console.error('Error transcribing audio:', error)
-      alert('Failed to transcribe audio. Please try again.')
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const clearAudio = () => {
-    setAudioBlob(null)
-    setAudioUrl(null)
-    setIsPlaying(false)
-    if (audioRef.current) {
-      audioRef.current.pause()
-      audioRef.current.currentTime = 0
-    }
+  const handleAnswerChange = (questionText: string, answer: string) => {
+    setCurrentAnswers(prev => ({
+      ...prev,
+      [questionText]: answer
+    }))
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!userAnswer.trim() || loading) return
+    if (loading) return
+
+    // Check if all questions have answers
+    const unanswered = currentQuestions.filter(q => !currentAnswers[q.question_text]?.trim())
+    if (unanswered.length > 0) {
+      setError('Please answer all questions before proceeding.')
+      return
+    }
+
+    // Clear any previous errors
+    setError(null)
+
+    // Create QA array for submission
+    const qaArray = currentQuestions.map(q => ({
+      question: q.question_text,
+      answer: currentAnswers[q.question_text] || ''
+    }))
+
+    // Create combined answers for display
+    const combinedAnswers = qaArray.map(item => `${item.question}: ${item.answer}`).join('\n\n')
 
     const newMessage: ChatMessage = {
-      question: currentQuestion,
-      answer: userAnswer
+      question: currentQuestions.map(q => q.question_text).join('\n\n'),
+      answer: combinedAnswers
     }
 
     const updatedHistory = [...messages, newMessage]
     setMessages(updatedHistory)
-    setUserAnswer('')
+    setCurrentAnswers({})
+    setQuestionKey(prev => prev + 1) // Force re-mount to clear inputs
     setLoading(true)
-    setAudioBlob(null) // Clear audio after submission
-    setAudioUrl(null)
 
     try {
       const response = await apiCall('/api/medical-reports/onboarding-qa', {
         method: 'POST',
         body: JSON.stringify({
-          answer: userAnswer,
-          count: count,
-          chat_history: updatedHistory
+          qa: qaArray,
+          count: count
         })
       })
 
-      if (response.is_done === true) {
+      console.log('QA Response:', response)
+
+      if (response.is_complete === true) {
         setIsComplete(true)
-        setCurrentQuestion(response.question || 'Thank you for completing the onboarding process!')
+        setCurrentQuestions([])
+        setCurrentAnswers({})
+        // Redirect to dashboard when complete
+        setTimeout(() => {
+          router.push('/dashboard')
+        }, 2000)
       } else {
-        setCurrentQuestion(response.question)
-        setCount(response.count)
+        // Increment count for next round
+        const nextCount = count + 1
+        setCount(nextCount)
+        
+        // Parse the response to handle both old and new formats
+        let questions: Question[] = []
+        if (response.questions && Array.isArray(response.questions)) {
+          questions = response.questions
+        } else if (response.question) {
+          // Handle old format - convert to new format
+          questions = [{
+            question_text: response.question,
+            input_type: 'textinput',
+            placeholder: 'Type your answer...'
+          }]
+        }
+        
+        setCurrentQuestions(questions)
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to send message:', error)
+      setError(error?.message || 'Failed to send message. Please try again.')
     } finally {
       setLoading(false)
     }
   }
 
   const handleDone = () => {
-    onComplete()
+    router.push('/dashboard')
+  }
+
+  const allQuestionsAnswered = () => {
+    return currentQuestions.every(q => currentAnswers[q.question_text]?.trim())
   }
 
   return (
@@ -238,7 +213,18 @@ export default function OnboardingChat({ onComplete }: OnboardingChatProps) {
         <Card className="h-[600px] flex flex-col">
           <CardContent className="flex-1 flex flex-col p-0">
             <div className="flex-1 overflow-y-auto p-6 space-y-4">
-              
+              {error && (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
+                  <div className="flex items-center">
+                    <div className="w-5 h-5 text-red-500 mr-2">
+                      <svg fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                      </svg>
+                    </div>
+                    <p className="text-red-700 font-medium">{error}</p>
+                  </div>
+                </div>
+              )}
 
               {showInitialLoadingMessage && loading && (
                 <div className="flex items-center justify-center h-full">
@@ -254,14 +240,22 @@ export default function OnboardingChat({ onComplete }: OnboardingChatProps) {
                 </div>
               )}
 
-              {currentQuestion && !isComplete && !showInitialLoadingMessage && (
-                <div className="flex items-start gap-3">
-                  <div className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center">
-                    <Bot className="w-4 h-4 text-white" />
-                  </div>
-                  <div className="flex-1 bg-green-50 rounded-lg p-4 prose max-w-none">
-                    <ReactMarkdown remarkPlugins={[remarkGfm]}>{currentQuestion}</ReactMarkdown>
-                  </div>
+              {currentQuestions.length > 0 && !isComplete && !showInitialLoadingMessage && (
+                <div className="space-y-6">
+                  {currentQuestions.map((question, index) => (
+                    <div key={index} className="flex items-start gap-3">
+                      <div className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center">
+                        <Bot className="w-4 h-4 text-white" />
+                      </div>
+                      <div className="flex-1">
+                        <DynamicQuestion
+                          key={`${questionKey}-${index}`}
+                          question={question}
+                          onAnswerChange={(answer) => handleAnswerChange(question.question_text, answer)}
+                        />
+                      </div>
+                    </div>
+                  ))}
                 </div>
               )}
 
@@ -273,7 +267,9 @@ export default function OnboardingChat({ onComplete }: OnboardingChatProps) {
                     </svg>
                   </div>
                   <h3 className="text-xl font-semibold text-gray-900 mb-2">Assessment Complete!</h3>
-                  <p className="text-gray-600 mb-6">{currentQuestion}</p>
+                  <p className="text-gray-600 mb-6">
+                    {currentQuestions.length === 0 && "Thank you for completing the onboarding process!"}
+                  </p>
                   <Button onClick={handleDone} size="lg">
                     Get Started
                   </Button>
@@ -283,47 +279,16 @@ export default function OnboardingChat({ onComplete }: OnboardingChatProps) {
               <div ref={messagesEndRef} />
             </div>
 
-            {!isComplete && (
+            {currentQuestions.length > 0 && !isComplete && (
               <div className="border-t border-gray-200 p-6">
-                <form onSubmit={handleSubmit} className="flex gap-4">
-                  <input
-                    type="text"
-                    value={userAnswer}
-                    onChange={(e) => setUserAnswer(e.target.value)}
-                    placeholder="Type your answer..."
-                    className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none"
-                    disabled={loading}
-                  />
-                  {!isRecording && !audioUrl && (
-                    <Button type="button" onClick={startRecording} disabled={loading}>
-                      <Mic className="w-4 h-4" />
-                    </Button>
-                  )}
-                  {isRecording && (
-                    <Button type="button" onClick={stopRecording} disabled={loading}>
-                      <StopCircle className="w-4 h-4" />
-                    </Button>
-                  )}
-                  {audioUrl && !isRecording && (
-                    <>
-                      <Button type="button" onClick={isPlaying ? pauseAudio : playAudio} disabled={loading}>
-                        {isPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
-                      </Button>
-                      <Button type="button" onClick={transcribeAudio} disabled={loading}>
-                        Transcribe
-                      </Button>
-                      <Button type="button" onClick={clearAudio} disabled={loading}>
-                        Clear
-                      </Button>
-                      <audio ref={audioRef} src={audioUrl} hidden />
-                    </>
-                  )}
+                <form onSubmit={handleSubmit} className="flex justify-end">
                   <Button
                     type="submit"
-                    disabled={!userAnswer.trim() || loading}
+                    disabled={!allQuestionsAnswered() || loading}
                     loading={loading}
                   >
-                    <Send className="w-4 h-4" />
+                    <Send className="w-4 h-4 mr-2" />
+                    Submit Answers
                   </Button>
                 </form>
               </div>

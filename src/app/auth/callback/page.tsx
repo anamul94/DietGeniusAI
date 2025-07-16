@@ -21,6 +21,7 @@ function AuthCallbackContent() {
           throw new Error('Missing authentication parameters')
         }
         
+        // Store authentication data
         localStorage.setItem('access_token', token)
         localStorage.setItem('user_info', JSON.stringify({
           id: userId,

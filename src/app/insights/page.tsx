@@ -26,7 +26,6 @@ export default function InsightsPage() {
   const [currentProgress, setCurrentProgress] = useState(0);
   const [assessment, setAssessment] = useState<AIAssessmentSummary | null>(null);
   const [streamingContent, setStreamingContent] = useState<string>('');
-  const [eventSource, setEventSource] = useState<EventSource | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [sessionId, setSessionId] = useState<string>('');
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -53,34 +52,40 @@ export default function InsightsPage() {
     setAssessment(null);
     setCurrentProgress(0);
 
-    try {
-      const params = new URLSearchParams({
-        target_date: format(targetDate, 'yyyy-MM-dd'),
-        token: token,
-        sse_session_id: sessionId
-      });
+    // Import SSE manager
+    const { SSEConnectionManager } = await import('@/lib/sse-manager');
+    const manager = new SSEConnectionManager();
 
-      const es = new EventSource(
-        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/daily-activity/stream/generate-assessment?${params}`
-      );
+    const params = new URLSearchParams({
+      target_date: format(targetDate, 'yyyy-MM-dd'),
+      token: token,
+      sse_session_id: sessionId
+    });
 
-      setEventSource(es);
+    const url = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/daily-activity/stream/generate-assessment?${params}`;
 
-      es.onmessage = (event) => {
-        const message = JSON.parse(event.data);
+    const success = await manager.connect({
+      url,
+      onMessage: (message) => {
         handleStreamMessage(message);
-      };
+      },
+      onError: (errorMessage) => {
+        console.error('SSE Error:', errorMessage);
+        setError(errorMessage);
+        setIsGenerating(false);
+      },
+      onOpen: () => {
+        console.log('SSE connection established');
+        setError(null);
+      },
+      onClose: () => {
+        console.log('SSE connection closed');
+        setIsGenerating(false);
+      },
+      timeout: 30000
+    });
 
-      es.onerror = (error) => {
-        console.error('EventSource error:', error);
-        if (es.readyState === EventSource.CLOSED) {
-          setError('Connection lost - please try again');
-          setIsGenerating(false);
-        }
-      };
-
-    } catch (error) {
-      setError('Failed to start assessment generation');
+    if (!success) {
       setIsGenerating(false);
     }
   };
@@ -92,52 +97,42 @@ export default function InsightsPage() {
         break;
       
       case 'progress':
-        setCurrentProgress(message.value);
+        setCurrentProgress(message.value || 0);
         break;
       
       case 'chunk':
-        setStreamingContent(prev => prev + message.data);
+        setStreamingContent(prev => prev + (message.data || ''));
         break;
       
       case 'complete':
         setAssessment({
           id: Date.now(),
           user_id: 0,
-          date_value: message.date_value,
-          summary: message.full_response,
+          date_value: message.date_value || format(targetDate!, 'yyyy-MM-dd'),
+          summary: message.full_response || 'No summary available',
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
         });
         setStreamingContent('');
         setIsGenerating(false);
         setCurrentProgress(100);
-        if (eventSource) {
-          eventSource.close();
-          setEventSource(null);
-        }
         break;
       
       case 'error':
-        setError(message.error || 'Error generating assessment');
+        setError(message.error || message.message || 'Error generating assessment');
         setIsGenerating(false);
-        if (eventSource) {
-          eventSource.close();
-          setEventSource(null);
-        }
         break;
     }
   };
 
   const resetAssessment = () => {
-    if (eventSource) {
-      eventSource.close();
-      setEventSource(null);
-    }
     setIsGenerating(false);
     setCurrentProgress(0);
     setStreamingContent('');
     setAssessment(null);
     setError(null);
+    // Generate new session ID
+    setSessionId(`session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`);
   };
 
   const getDisplayContent = () => {
@@ -257,9 +252,6 @@ export default function InsightsPage() {
                       className="bg-blue-600 h-2 rounded-full transition-all duration-300" 
                       style={{ width: `${currentProgress}%` }}
                     />
-                  </div>
-                  <div className="text-sm text-gray-500">
-                    Status: {eventSource ? 'Connected' : 'Connecting...'}
                   </div>
                 </div>
               )}

@@ -30,7 +30,6 @@ const MealPlanStreaming = ({ mode }: MealPlanStreamingProps) => {
   const [currentProgress, setCurrentProgress] = useState(0);
   const [mealPlan, setMealPlan] = useState<MealPlan | null>(null);
   const [streamingContent, setStreamingContent] = useState<string>('');
-  const [eventSource, setEventSource] = useState<EventSource | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [sessionId, setSessionId] = useState<string>('');
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -45,15 +44,7 @@ const MealPlanStreaming = ({ mode }: MealPlanStreamingProps) => {
     }
     setIsAuthenticated(true);
     setSessionId(`session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`);
-    
-    // Cleanup function to close EventSource when component unmounts
-    return () => {
-      if (eventSource) {
-        eventSource.close();
-        setEventSource(null);
-      }
-    };
-  }, [router, eventSource]);
+  }, [router]);
 
   const handleStreamMessage = (message: any) => {
     switch (message.type) {
@@ -80,31 +71,17 @@ const MealPlanStreaming = ({ mode }: MealPlanStreamingProps) => {
       case 'end':
         // Final event to close connection
         setIsGenerating(false);
-        if (eventSource) {
-          eventSource.close();
-          setEventSource(null);
-        }
         break;
       case 'error':
         setError(message.message || 'An error occurred');
         setIsGenerating(false);
-        if (eventSource) {
-          eventSource.close();
-          setEventSource(null);
-        }
         break;
     }
   };
 
-  const startMealPlanGeneration = () => {
+  const startMealPlanGeneration = async () => {
     const token = localStorage.getItem('access_token');
     if (!token || !sessionId) return;
-
-    // Close any existing connection
-    if (eventSource) {
-      eventSource.close();
-      setEventSource(null);
-    }
 
     setIsGenerating(true);
     setError(null);
@@ -112,70 +89,41 @@ const MealPlanStreaming = ({ mode }: MealPlanStreamingProps) => {
     setMealPlan(null);
     setCurrentProgress(0);
 
+    // Import SSE manager
+    const { SSEConnectionManager } = await import('@/lib/sse-manager');
+    const manager = new SSEConnectionManager();
+
     const params = new URLSearchParams({
       session_id: sessionId,
       token: token
     });
 
-    const es = new EventSource(
-      `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/meal-entries/stream/generate-meal-plan?${params}`
-    );
+    const url = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/meal-entries/stream/generate-meal-plan?${params}`;
 
-    setEventSource(es);
-
-    // Connection timeout (30 seconds)
-    const connectionTimeout = setTimeout(() => {
-      if (es.readyState === EventSource.CONNECTING) {
-        setError('Connection timeout. Please try again.');
+    const success = await manager.connect({
+      url,
+      onMessage: (message) => {
+        handleStreamMessage(message);
+      },
+      onError: (errorMessage) => {
+        console.error('SSE Error:', errorMessage);
+        setError(errorMessage);
         setIsGenerating(false);
-        es.close();
-        setEventSource(null);
-      }
-    }, 30000);
+      },
+      onOpen: () => {
+        console.log('SSE connection established');
+        setError(null);
+      },
+      onClose: () => {
+        console.log('SSE connection closed');
+        setIsGenerating(false);
+      },
+      timeout: 30000
+    });
 
-    // Overall timeout (5 minutes)
-    const overallTimeout = setTimeout(() => {
-      setError('Meal plan generation timed out. Please try again.');
+    if (!success) {
       setIsGenerating(false);
-      es.close();
-      setEventSource(null);
-    }, 300000);
-
-    es.onmessage = (event) => {
-      clearTimeout(connectionTimeout);
-      const message = JSON.parse(event.data);
-      handleStreamMessage(message);
-      
-      // Clear overall timeout on completion
-      if (message.type === 'complete' || message.type === 'end' || message.type === 'error') {
-        clearTimeout(overallTimeout);
-      }
-    };
-
-    es.onerror = (error) => {
-      console.error('EventSource error:', error);
-      clearTimeout(connectionTimeout);
-      clearTimeout(overallTimeout);
-      
-      if (es.readyState === EventSource.CLOSED) {
-        setIsGenerating(false);
-        setError('Connection lost - please try again');
-      }
-      es.close();
-      setEventSource(null);
-    };
-
-    es.onopen = () => {
-      console.log('EventSource connected');
-      clearTimeout(connectionTimeout);
-    };
-
-    return () => {
-      clearTimeout(connectionTimeout);
-      clearTimeout(overallTimeout);
-      es.close();
-      setEventSource(null);
-    };
+    }
   };
 
   const fetchLatestMealPlan = async () => {
@@ -210,10 +158,6 @@ const MealPlanStreaming = ({ mode }: MealPlanStreamingProps) => {
   };
 
   const resetMealPlan = () => {
-    if (eventSource) {
-      eventSource.close();
-      setEventSource(null);
-    }
     setIsGenerating(false);
     setCurrentProgress(0);
     setStreamingContent('');
@@ -384,9 +328,6 @@ const MealPlanStreaming = ({ mode }: MealPlanStreamingProps) => {
                       className="bg-blue-600 h-2 rounded-full transition-all duration-300" 
                       style={{ width: `${currentProgress}%` }}
                     />
-                  </div>
-                  <div className="text-sm text-gray-500">
-                    Status: {eventSource ? 'Connected' : 'Connecting...'}
                   </div>
                 </div>
               )}
