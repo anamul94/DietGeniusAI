@@ -45,7 +45,10 @@ class Question(BaseModel):
 class NutritionistQA(BaseModel):
     questions: List[Question] = Field(
         ...,
-        description="A list of one or more questions the LLM (Nutritionist) will ask the patient."
+        description=("A list of one or more questions the LLM (Nutritionist) will ask the patient."
+                     "Each round maximum  10 questions."
+        
+    )
     )
     is_complete: bool = Field(
         False,

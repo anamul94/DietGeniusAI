@@ -100,7 +100,12 @@ def login_access_token(
 @router.get("/google-login")
 async def google_login(request: Request, _: None = Depends(rate_limit_auth)):
     redirect_uri = settings.GOOGLE_REDIRECT_URI
-    return await oauth.google.authorize_redirect(request, redirect_uri)
+    return await oauth.google.authorize_redirect(request, redirect_uri, prompt='select_account')
+
+@router.get("/google-login-popup")
+async def google_login_popup(request: Request, _: None = Depends(rate_limit_auth)):
+    redirect_uri = f"{settings.GOOGLE_REDIRECT_URI}?popup=true"
+    return await oauth.google.authorize_redirect(request, redirect_uri, prompt='select_account')
 
 @router.get('/google/callback')
 async def auth_google_callback(request: Request, db: Session = Depends(get_db), _: None = Depends(rate_limit_auth)):
@@ -163,8 +168,16 @@ async def auth_google_callback(request: Request, db: Session = Depends(get_db), 
             extra_data=extra_data
         )
         
-        # Redirect to frontend with token and user info
-        frontend_url = f"{settings.FRONTEND_URL}/auth/callback?token={access_token}&user_id={user.id}&onboarding_status={user.onboarding_status}"
+        # Check if this is a popup flow
+        is_popup = request.query_params.get('popup') == 'true'
+        
+        if is_popup:
+            # Redirect to popup callback
+            frontend_url = f"{settings.FRONTEND_URL}/auth/popup-callback?token={access_token}&user_id={user.id}&onboarding_status={user.onboarding_status}"
+        else:
+            # Regular redirect flow
+            frontend_url = f"{settings.FRONTEND_URL}/auth/callback?token={access_token}&user_id={user.id}&onboarding_status={user.onboarding_status}"
+        
         return RedirectResponse(url=frontend_url)
         
     except OAuthError as e:

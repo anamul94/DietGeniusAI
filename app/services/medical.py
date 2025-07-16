@@ -10,7 +10,7 @@ from sqlalchemy import desc
 from app.core.pagination import BasePaginator, PaginationResult
 from app.agents.agetns import user_onboarding_agent, get_memory_test_agent
 from fastapi import Depends
-from app.schemas.qa import QaAns, QA
+from app.schemas.qa import QAAnsReq, QA
 from app.utils.age_calculator import calculate_age
 import json
 from datetime import datetime
@@ -49,14 +49,24 @@ def get_user_medical_reports_paginated(
         return None
 
 async def user_onboarding_qa(
-    ans: QaAns,
+    ans: QAAnsReq,
     user_id: int,
     db: Session
 ):
     try:
+        # Validate that all questions have answers
+        if ans.has_unanswered_questions():
+            raise HTTPException(
+                status_code=400,
+                detail="Please answer all questions before proceeding."
+            )
+        
         agent = user_onboarding_agent()
         user_message = ""
         today = datetime.now().date()
+        
+        # Increment count for tracking
+        current_count = ans.count + 1
         
         # Fetch user info first since we need it in multiple places
         user = db.query(User).filter(User.id == user_id).first()
@@ -64,8 +74,7 @@ async def user_onboarding_qa(
             raise HTTPException(status_code=404, detail="User not found")
             
         if ans.count == 0:
-            
-            # Fetch 2 reports for the user
+            # First round - include user profile and medical reports
             medical_reports = get_user_medical_reports_paginated(
                 db=db,
                 user_id=user_id,
@@ -73,16 +82,17 @@ async def user_onboarding_qa(
                 limit=2
             )
             
-            if medical_reports is None:
-                pass
-            
-            # Create data structure with user info
-            data_dict = {
-                "reports": [{
+            reports_data = []
+            if medical_reports and medical_reports.items:
+                reports_data = [{
                     "id": str(report.id),
                     "medical_report": report.medical_report,
                     "uploaded_at": str(report.created_at)
-                } for report in medical_reports.items],
+                } for report in medical_reports.items]
+            
+            # Create data structure with user info
+            data_dict = {
+                "reports": reports_data,
                 "user_profile": {
                     "gender": user.gender,
                     "age": calculate_age(user.dob),
@@ -93,30 +103,44 @@ async def user_onboarding_qa(
                     "dietary_preference": user.dietary_preference,
                     "purpose_of_joining": user.purpose_of_joining
                 },
-                "user_response": ans.answer,
-                "qa_round": ans.count+1,
-                "date": str(today)
+                "user_responses": ans.get_combined_answers(),
+                "qa_round": current_count,
+                "date": str(today),
+                "questions_and_answers": [{"question": qa.question, "answer": qa.answer} for qa in ans.qa]
             }
             
             user_message = json.dumps(data_dict)
-        elif ans.count == 3:
+        elif ans.count >= 3:
+            # Complete onboarding
             user.onboarding_status = "completed"
             db.add(user)
             db.commit()
             response = agent.run(message="Done, summarize the session", user_id=str(user_id), session_id=str(user_id))
-            print(response.content)
+            logger.info(f"Onboarding completed for user {user_id}")
             return response.content
         else:
+            # Subsequent rounds
             data = {
-                "answer": ans.answer,
-                "qa_round": ans.count+1
+                "Patient Responses": ans.get_combined_answers(),
+                "qa_round": current_count,
+                "questions_and_answers": [{"question": qa.question, "answer": qa.answer} for qa in ans.qa],
+                "date": str(today)
             }
             user_message = json.dumps(data)
     
         # Process the user message
         response = agent.run(message=user_message, user_id=str(user_id), session_id=str(user_id))
+        logger.info(f"QA Agent response for user {user_id}, round {current_count}: {response.content}")
+        qa = response.content
+        if qa.is_complete:
+            user.onboarding_status = "completed"
+            db.add(user)
+            db.commit()
         return response.content
         
+    except HTTPException:
+        # Re-raise HTTP exceptions (like validation errors)
+        raise
     except Exception as e:
         logger.error(f"Error processing onboarding QA for user {user_id}: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail="Failed to process onboarding QA. Please try again later.")
