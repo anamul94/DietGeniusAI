@@ -2,15 +2,13 @@ from pydantic import BaseModel, Field
 from typing import Optional, List, Dict, Any
 from datetime import datetime, date
 from enum import Enum
+from app.schemas.NutritionistQA import NutritionistQA
 
 class QaAns(BaseModel):
+    question: str = Field(description="QA Question")
     answer: str = Field(description="QA Answer Value")
     count: int = Field(description="QA Count Value", default_factory=0)
-    chat_history: List[Dict[str, str]] = Field(description="QA and answer history as {question: answer}", default_factory=list)
     
 class QA(BaseModel):
-    question: str = Field(description="Question")
-    message: str = Field(description="QA Message")
-    is_done: bool = Field(description="Wheather QA is done or not")
+    data: NutritionistQA = Field(description="Question")
     count: int = Field(description="QA Count Value", default_factory=0)
-    chat_history: Optional[List[Dict[str, str]]] = Field(description="QA and answer history as {question: answer}", default_factory=list)

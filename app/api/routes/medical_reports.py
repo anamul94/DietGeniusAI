@@ -11,6 +11,7 @@ from app.db.base import get_db
 from app.utils.id_gen import generate_custom_id
 
 from app.schemas.qa import QA, QaAns
+from app.schemas.NutritionistQA import NutritionistQA
 
 
 router = APIRouter()
@@ -122,7 +123,7 @@ async def get_medical_reports(
 
 
 
-@router.post("/onboarding-qa",response_model=QA)
+@router.post("/onboarding-qa",response_model=NutritionistQA)
 async def onoarding_qa(
     ans:QaAns,
     current_user: User = Depends(get_current_active_user),

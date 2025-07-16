@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy.exc import SQLAlchemyError
 from typing import Optional
 from app.core.logging import logger
-from app.schemas.agnent_qa import AgentQA
+from app.schemas.NutritionistQA import NutritionistQA
 from app.models.medical import MedicalReport
 from app.models.user import User, OnboardingStatus
 from sqlalchemy import desc
@@ -99,18 +99,13 @@ async def user_onboarding_qa(
             }
             
             user_message = json.dumps(data_dict)
-        elif ans.count == 3: 
+        elif ans.count == 3:
             user.onboarding_status = "completed"
             db.add(user)
             db.commit()
             response = agent.run(message="Done, summarize the session", user_id=str(user_id), session_id=str(user_id))
             print(response.content)
-            return QA(
-                question=response.content,
-                message="Thank You For your cooperation",
-                is_done=True,
-                count=4
-            )
+            return response.content
         else:
             data = {
                 "answer": ans.answer,
@@ -120,13 +115,7 @@ async def user_onboarding_qa(
     
         # Process the user message
         response = agent.run(message=user_message, user_id=str(user_id), session_id=str(user_id))
-        
-        return QA(
-            question=response.content,
-            message="",
-            is_done=False,
-            count=ans.count+1
-        )
+        return response.content
         
     except Exception as e:
         logger.error(f"Error processing onboarding QA for user {user_id}: {str(e)}", exc_info=True)
