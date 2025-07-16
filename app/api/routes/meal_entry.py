@@ -2,8 +2,12 @@ from fastapi import APIRouter, Depends, HTTPException, status, Request, Query, F
 from sqlalchemy.orm import Session
 from typing import Optional, List
 from datetime import datetime, date
+import json
+import asyncio
 
-from app.api.deps import get_db, get_current_user
+from fastapi.responses import StreamingResponse
+
+from app.api.deps import get_db, get_current_user, get_current_user_from_token
 from app.models.user import User
 from app.models.food_nutrition import MealType
 from app.schemas.meal_entry import (
@@ -38,11 +42,14 @@ from app.services.meal_plan import (
     get_latest_meal_plan,
     get_meal_plan_by_id,
     delete_meal_plan,
+    generate_meal_plan_streaming,
     MealPlanServiceError
 )
 from app.services.meal_types import get_meal_types_response
 from app.services.nutrition import parse_nutrition
 from app.core.logging import logger
+from app.utils.sse_session import add_connection, remove_connection
+
 
 router = APIRouter()
 
@@ -716,3 +723,43 @@ async def upload_food_nutrition(
             status_code=500,
             detail="Failed to process food nutrition. Please try again later."
         )
+
+
+@router.get("/stream/generate-meal-plan")
+async def generate_meal_plan_stream(
+    session_id: str = Query(..., description="Session ID for SSE"),
+    token: str = Query(..., description="JWT token for authentication"),
+    db: Session = Depends(get_db),
+):
+    """
+    Generate meal plan using Server-Sent Events (SSE) streaming
+    
+    This endpoint provides real-time streaming of meal plan generation:
+    1. Connection establishment
+    2. Progress updates (0-100%)
+    3. Real-time content streaming
+    4. Final complete response
+    
+    **SSE Message Types:**
+    - `connected`: Connection established
+    - `progress`: Generation progress (0-100%)
+    - `chunk`: Real-time content chunk
+    - `complete`: Final complete response
+    - `error`: Error message
+    """
+    logger.info(f"Generating meal plan for user with session ID: {session_id}")
+    current_user = get_current_user_from_token(token, db)
+    add_connection(session_id=session_id)
+    
+    
+    return StreamingResponse(
+        generate_meal_plan_streaming(user_id=current_user.id, session_id=session_id),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Headers": "Content-Type, Authorization",
+            "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+        }
+    )

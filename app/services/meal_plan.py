@@ -1,3 +1,5 @@
+import json
+import asyncio
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 from typing import Optional, List, AsyncGenerator
@@ -13,6 +15,8 @@ from app.agents.agetns import meal_plan_agent
 from app.services.user import get_user
 from app.api.deps import get_db
 from app.utils.age_calculator import calculate_age
+
+from app.utils.sse_session import add_connection, remove_connection
 
 class MealPlanServiceError(Exception):
     """Custom exception for meal plan service errors"""
@@ -39,7 +43,7 @@ class MealPlanPaginator(BasePaginator):
         # Order by plan_date (newest first)
         return query.order_by(MealPlan.plan_date.desc())
 
-def create_or_update_meal_plan(
+async def create_or_update_meal_plan(
     db: Session, 
     user_id: int, 
     meal_plan_content: str,
@@ -268,6 +272,8 @@ async def generate_and_save_meal_plan(
     finally:
         db.close()
 
+
+
 async def generate_meal_plan_streaming(
     user_id: int,
     session_id: str,
@@ -284,11 +290,26 @@ async def generate_meal_plan_streaming(
     """
     db_generator = get_db()
     db = next(db_generator)
+    
+    # Set timeout for the entire streaming process (5 minutes)
+    MAX_STREAMING_TIME = 300  # 5 minutes in seconds
+    
     try:
         user = get_user(db, user_id)
         logger.info(
             f"Streaming meal plan for user {user.username} with session {session_id}"
         )
+        
+        # Track start time for timeout
+        start_time = asyncio.get_event_loop().time()
+        
+        yield f"data: {json.dumps({'type': 'connection', 'message': 'Connection established'})}\n\n"
+        yield f"data: {json.dumps({'type': 'progress', 'message': 'Initializing meal plan agent...', 'progress': 10})}\n\n"
+        await asyncio.sleep(0.5)
+        
+        # Check for timeout
+        if asyncio.get_event_loop().time() - start_time > MAX_STREAMING_TIME:
+            raise TimeoutError("Streaming timeout exceeded")
         
         today = datetime.now().date()
         meal_planner = meal_plan_agent()
@@ -305,15 +326,103 @@ async def generate_meal_plan_streaming(
         """
         
         logger.info(f"Meal plan streaming message: {message}")
+        yield f"data: {json.dumps({'type': 'progress', 'message': 'Preparing personalized meal plan...', 'progress': 20})}\n\n"
+        await asyncio.sleep(0.5)
+        
+        # Check for timeout
+        if asyncio.get_event_loop().time() - start_time > MAX_STREAMING_TIME:
+            raise TimeoutError("Streaming timeout exceeded")
         
         # Generate meal plan using the agent with streaming
-        for chunk in meal_planner.run(
-            message=message,
-            user_id=user.id,
-            stream=True,
-        ):
-            if chunk is not None and chunk.content:
-                yield chunk.content
+        chunk_index = 0
+        meal_plan_content = ""
         
+        try:
+            # Use asyncio.wait_for to add timeout to the agent generation
+            agent_generator = meal_planner.run(
+                message=message,
+                user_id=user.id,
+                stream=True,
+            )
+            
+            for chunk in agent_generator:
+                # Check for timeout on each chunk
+                if asyncio.get_event_loop().time() - start_time > MAX_STREAMING_TIME:
+                    raise TimeoutError("Streaming timeout exceeded")
+                    
+                if chunk is not None and chunk.content:
+                    yield f"data: {json.dumps({'type': 'chunk', 'data': chunk.content, 'chunk_index': chunk_index})}\n\n"
+                    chunk_index += 1
+                    meal_plan_content += chunk.content
+                    
+                    # Add small delay to prevent overwhelming the client
+                    await asyncio.sleep(0.1)
+                    
+        except Exception as e:
+            logger.error(f"Error during agent streaming: {str(e)}")
+            raise
+        
+        # Check for timeout
+        if asyncio.get_event_loop().time() - start_time > MAX_STREAMING_TIME:
+            raise TimeoutError("Streaming timeout exceeded")
+        
+        yield f"data: {json.dumps({'type': 'progress', 'message': 'Finalizing meal plan...', 'progress': 90})}\n\n"
+        
+        saved_meal_plan = await create_or_update_meal_plan(
+            db=db,
+            user_id=user_id,
+            meal_plan_content=meal_plan_content,
+            plan_date=today
+        )
+        
+        yield f"data: {json.dumps({'type': 'progress', 'message': 'Meal plan completed!', 'progress': 100})}\n\n"
+        await asyncio.sleep(0.5)
+        
+        # Send complete response with proper structure
+        complete_response = {
+            'type': 'complete',
+            'full_response': meal_plan_content,
+            'plan_date': today.isoformat(),
+            'meal_plan': saved_meal_plan.to_dict()
+        }
+        yield f"data: {json.dumps(complete_response)}\n\n"
+        
+        # Send end event to properly close the connection
+        yield f"data: {json.dumps({'type': 'end', 'message': 'Streaming completed'})}\n\n"
+    
+    except asyncio.CancelledError:
+        # This is expected when the client disconnects.
+        logger.info(f"Client disconnected for session_id {session_id}")
+        raise
+    except TimeoutError as e:
+        logger.error(f"Streaming timeout for session_id {session_id}: {str(e)}")
+        error_response = {
+            'type': 'error',
+            'message': "Meal plan generation timed out. Please try again."
+        }
+        yield f"data: {json.dumps(error_response)}\n\n"
+    except Exception as e:
+        logger.error(f"Error in meal plan streaming: {str(e)}")
+        error_response = {
+            'type': 'error',
+            'message': f"Error generating meal plan: {str(e)}"
+        }
+        yield f"data: {json.dumps(error_response)}\n\n"
+    
     finally:
+        # Clean up connection
+        remove_connection(session_id=session_id)
         db.close()
+        
+    
+    
+
+#########***********STREAM*************************
+
+# async def generate_meal_plan_streaming(
+#     user_id: int,
+#     session_id: str,
+# ) -> AsyncGenerator[str, None]:
+    
+    
+    
