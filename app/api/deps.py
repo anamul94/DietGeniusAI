@@ -81,6 +81,51 @@ def get_current_user(
     
     return user
 
+def get_current_user_from_token(token: str, db: Session) -> User:
+    """
+    Validate JWT token directly and return the current user.
+    Used for WebSocket and SSE authentication where headers aren't available.
+    """
+    try:
+        logger.debug(f"Validating token from query parameter: {token[:10]}...")
+        payload = jwt.decode(
+            token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM]
+        )
+        token_data = TokenPayload(**payload)
+        
+        if token_data.sub is None:
+            logger.warning("Token validation failed: missing subject")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid token",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+    except (JWTError, ValidationError) as e:
+        logger.warning(f"Token validation failed: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Could not validate credentials",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    
+    user = db.query(User).filter(User.id == token_data.sub).first()
+    
+    if not user:
+        logger.warning(f"User not found for token sub: {token_data.sub}")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found",
+        )
+    
+    if not user.is_active:
+        logger.warning(f"Inactive user attempted access: {user.username}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Inactive user",
+        )
+    
+    return user
+
 def get_current_active_user(current_user: User = Depends(get_current_user)) -> User:
     """
     Get current active user

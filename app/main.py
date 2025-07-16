@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.sessions import SessionMiddleware
-from app.api.routes import users, medical_reports, google_health, meal_entry, daily_activity_summary
+from app.api.routes import users, medical_reports, google_health, meal_entry, daily_activity_summary, websocket, assessment_streaming
 from app.core.config import settings
 from app.db.base import Base, engine
 from app.core.logging import setup_logger
@@ -38,6 +38,14 @@ app = FastAPI(
         {
             "name": "meal-entries",
             "description": "Meal entries management for tracking meals and nutritional intake"
+        },
+        {
+            "name": "daily-activity",
+            "description": "Daily activity summary and assessment operations"
+        },
+        {
+            "name": "assessment-streaming",
+            "description": "Real-time assessment streaming with Server-Sent Events"
         }
     ],
     docs_url="/api/docs",
@@ -71,6 +79,8 @@ app.include_router(medical_reports.router, prefix="/api/medical-reports", tags=[
 app.include_router(google_health.router, prefix="/api/google-health", tags=["google-health"])
 app.include_router(meal_entry.router, prefix="/api/meal-entries", tags=["meal-entries"])
 app.include_router(daily_activity_summary.router, prefix="/api/daily-activity", tags=["daily-activity"])
+app.include_router(assessment_streaming.router, prefix="/api/assessment-streaming", tags=["assessment-streaming"])
+app.include_router(websocket.router)
 
 @app.on_event("startup")
 async def startup_event():

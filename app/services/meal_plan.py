@@ -1,6 +1,6 @@
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
-from typing import Optional, List
+from typing import Optional, List, AsyncGenerator
 from datetime import datetime, date
 from fastapi import HTTPException, status
 
@@ -264,6 +264,56 @@ async def generate_and_save_meal_plan(
         )
         
         return saved_meal_plan
+        
+    finally:
+        db.close()
+
+async def generate_meal_plan_streaming(
+    user_id: int,
+    session_id: str,
+) -> AsyncGenerator[str, None]:
+    """
+    Generate meal plan with streaming response
+    
+    Args:
+        user_id: User ID
+        session_id: Session ID
+        
+    Yields:
+        Chunks of meal plan content as they're generated
+    """
+    db_generator = get_db()
+    db = next(db_generator)
+    try:
+        user = get_user(db, user_id)
+        logger.info(
+            f"Streaming meal plan for user {user.username} with session {session_id}"
+        )
+        
+        today = datetime.now().date()
+        meal_planner = meal_plan_agent()
+        age = calculate_age(user.dob)
+        
+        message = f"""Generate a well defined meal plan for 7 days,
+            user name: {user.username},
+            gender: {user.gender},
+            age: {age},
+            profession: {user.profession}
+            country: {user.country},
+            city: {user.city},
+            date: {today}
+        """
+        
+        logger.info(f"Meal plan streaming message: {message}")
+        
+        # Generate meal plan using the agent with streaming
+        for chunk in meal_planner.run(
+            message=message,
+            user_id=user.id,
+            stream=True,
+        ):
+            if chunk is not None and chunk.content:
+                yield chunk.content
         
     finally:
         db.close()
