@@ -9,6 +9,8 @@ dependencies = [
     "anthropic>=0.57.1",
     "authlib>=1.6.0",
     "boto3>=1.39.3",
+    "dds>=1.0",
+    "duckduckgo-search>=8.1.1",
     "groq>=0.30.0",
     "httpx>=0.28.1",
     "itsdangerous>=2.2.0",
@@ -23,6 +25,7 @@ dependencies = [
     "pytest>=8.4.1",
     "pytest-cov>=6.2.1",
     "python-jose>=3.5.0",
+    "redis>=6.2.0",
 ]
 
 [dependency-groups]

@@ -3,6 +3,7 @@ from app.core.config import settings
 import os
 
 from agno.storage.postgres import PostgresStorage
+from agno.storage.redis import RedisStorage
 
 db_url = get_database_config().url
 schema = get_database_config().schema
@@ -24,4 +25,9 @@ GENERAL_SESSION_STORAGE = PostgresStorage(
     schema=schema,
     db_url=db_url,
     auto_upgrade_schema=True,
+)
+
+REDIS_SESSION_STORAGE = RedisStorage(
+   prefix="user_session",
+   port=6375,
 )

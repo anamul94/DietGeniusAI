@@ -34,6 +34,7 @@ class Question(BaseModel):
         description=(
             "An optional placeholder text to display in the input field as an example or hint. "
             "Most relevant for 'textinput', but can be used for guidance in others if needed."
+            "Provide examples and guidance for the patient to provide a clear and concise response."
         )
     )
     additional_context: Optional[str] = Field(

@@ -1,12 +1,12 @@
 from textwrap import dedent
 from agno.agent import Agent
 from app.agents.models.model_provider import ModelProvider
-from app.constants import bedrock
+from app.constants import models
 
 
 report_representation_agent = Agent(
     name="Report Representation Agent",
-    model=ModelProvider().aws_model(id=bedrock.NOVA_PRO),
+    model=ModelProvider().aws_model(id=models.NOVA_PRO),
     instructions=dedent("""\
         Your task is to extract relevant **medical, clinical, and nutritional insights** from the provided input. 
         Present these findings in a **structured, professional medical format** that is clear and easy to interpret for healthcare professionals or patients.

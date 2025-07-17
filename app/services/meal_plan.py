@@ -244,6 +244,8 @@ async def generate_and_save_meal_plan(
             profession: {user.profession}
             country: {user.country},
             city: {user.city},
+            "dietary preferences": {user.dietary_preference or ''},
+            "purpose of joining": {user.purpose_of_joining or ''},
             date: {today}
         """
         
@@ -311,7 +313,7 @@ async def generate_meal_plan_streaming(
         if asyncio.get_event_loop().time() - start_time > MAX_STREAMING_TIME:
             raise TimeoutError("Streaming timeout exceeded")
         
-        today = datetime.now().date()
+        today = date.today()
         meal_planner = meal_plan_agent()
         age = calculate_age(user.dob)
         
@@ -322,6 +324,8 @@ async def generate_meal_plan_streaming(
             profession: {user.profession}
             country: {user.country},
             city: {user.city},
+            "dietary preferences": {user.dietary_preference or ''},
+            "purpose of joining": {user.purpose_of_joining or ''},
             date: {today}
         """
         
@@ -341,7 +345,7 @@ async def generate_meal_plan_streaming(
             # Use asyncio.wait_for to add timeout to the agent generation
             agent_generator = meal_planner.run(
                 message=message,
-                user_id=user.id,
+                user_id=str(user.id),
                 stream=True,
             )
             

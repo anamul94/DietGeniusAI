@@ -73,6 +73,29 @@ async def user_onboarding_qa(
         if not user:
             raise HTTPException(status_code=404, detail="User not found")
             
+        # Validate required profile data
+        missing_fields = []
+        if not user.height:
+            missing_fields.append("height")
+        if not user.weight:
+            missing_fields.append("weight")
+        if not user.dietary_preference:
+            missing_fields.append("dietary_preference")
+        if not user.purpose_of_joining:
+            missing_fields.append("purpose_of_joining")
+            
+        if missing_fields and ans.count == 0:
+            logger.warning(f"Missing required profile data for user {user_id}: {missing_fields}")
+            raise HTTPException(
+                status_code=400,
+                detail=f"Please complete your profile before starting onboarding. Missing: {', '.join(missing_fields)}"
+            )
+            
+        # Log user profile data for debugging
+        logger.info(f"User profile data for onboarding: user_id={user_id}, "
+                   f"height={user.height}, weight={user.weight}, bmi={user.bmi}, "
+                   f"dietary_preference={user.dietary_preference}, purpose_of_joining={user.purpose_of_joining}")
+            
         if ans.count == 0:
             # First round - include user profile and medical reports
             medical_reports = get_user_medical_reports_paginated(
@@ -91,18 +114,25 @@ async def user_onboarding_qa(
                 } for report in medical_reports.items]
             
             # Create data structure with user info
+            # Handle null values gracefully
+            user_profile = {
+                "gender": user.gender or "Not specified",
+                "age": calculate_age(user.dob) if user.dob else "Not specified",
+                "profession": user.profession or "Not specified",
+                "height": user.height or 0,
+                "weight": user.weight or 0,
+                "bmi": user.bmi or 0,
+                "dietary_preference": user.dietary_preference or "Not specified",
+                "purpose_of_joining": user.purpose_of_joining or "Not specified"
+            }
+            
+            # Only include valid measurements
+            if user.height and user.weight:
+                user_profile["bmi"] = user.bmi or round(user.weight / ((user.height / 100) ** 2), 2)
+            
             data_dict = {
                 "reports": reports_data,
-                "user_profile": {
-                    "gender": user.gender,
-                    "age": calculate_age(user.dob),
-                    "profession": user.profession,
-                    "height": user.height,
-                    "weight": user.weight,
-                    "bmi": user.bmi,
-                    "dietary_preference": user.dietary_preference,
-                    "purpose_of_joining": user.purpose_of_joining
-                },
+                "user_profile": user_profile,
                 "user_responses": ans.get_combined_answers(),
                 "qa_round": current_count,
                 "date": str(today),
