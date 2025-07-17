@@ -1,6 +1,7 @@
 'use client'
 
 // Authentication utilities for managing tokens and user sessions
+import { setAuthToken, getAuthToken, removeAuthToken } from './auth-cookies';
 
 export const AUTH_KEYS = {
   ACCESS_TOKEN: 'access_token',
@@ -9,28 +10,29 @@ export const AUTH_KEYS = {
 } as const
 
 /**
- * Clear all authentication data from localStorage
+ * Clear all authentication data from localStorage and cookies
  */
 export function clearAuthData(): void {
   if (typeof window !== 'undefined') {
+    // Clear from localStorage (legacy)
     localStorage.removeItem(AUTH_KEYS.ACCESS_TOKEN)
     localStorage.removeItem(AUTH_KEYS.USER_INFO)
     localStorage.removeItem(AUTH_KEYS.REFRESH_TOKEN)
+    
+    // Clear from cookies
+    removeAuthToken()
   }
 }
 
 /**
- * Get current access token
+ * Get current access token (from cookies)
  */
 export function getAccessToken(): string | null {
-  if (typeof window !== 'undefined') {
-    return localStorage.getItem(AUTH_KEYS.ACCESS_TOKEN)
-  }
-  return null
+  return getAuthToken()
 }
 
 /**
- * Get current user info
+ * Get current user info (from localStorage)
  */
 export function getUserInfo(): { id: string; onboarding_status: string } | null {
   if (typeof window !== 'undefined') {
@@ -69,7 +71,10 @@ export function logout(redirect: boolean = true): void {
  */
 export function storeAuthData(token: string, userId: string, onboardingStatus: string): void {
   if (typeof window !== 'undefined') {
-    localStorage.setItem(AUTH_KEYS.ACCESS_TOKEN, token)
+    // Store in cookies for SSE authentication
+    setAuthToken(token, 60) // 60 minutes
+    
+    // Store user info in localStorage (non-sensitive data)
     localStorage.setItem(AUTH_KEYS.USER_INFO, JSON.stringify({
       id: userId,
       onboarding_status: onboardingStatus

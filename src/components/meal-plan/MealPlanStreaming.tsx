@@ -33,6 +33,17 @@ const MealPlanStreaming = ({ mode }: MealPlanStreamingProps) => {
   const [error, setError] = useState<string | null>(null);
   const [sessionId, setSessionId] = useState<string>('');
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [connectionState, setConnectionState] = useState<{
+    isConnected: boolean;
+    reconnectAttempts: number;
+    connectionDuration: number;
+    isHealthy: boolean;
+  }>({
+    isConnected: false,
+    reconnectAttempts: 0,
+    connectionDuration: 0,
+    isHealthy: false
+  });
   
   const router = useRouter();
 
@@ -42,9 +53,35 @@ const MealPlanStreaming = ({ mode }: MealPlanStreamingProps) => {
       router.push('/');
       return;
     }
+    
+    // Set token in cookies for SSE authentication
+    import('@/lib/auth-cookies').then(({ setAuthToken }) => {
+      setAuthToken(token, 60); // 60 minutes
+    });
+    
     setIsAuthenticated(true);
     setSessionId(`session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`);
   }, [router]);
+
+  // Connection monitoring effect
+  useEffect(() => {
+    if (!isGenerating) return;
+
+    const monitorConnection = setInterval(async () => {
+      const { EnhancedSSEConnectionManager } = await import('@/lib/sse-manager-enhanced-v2');
+      const manager = new EnhancedSSEConnectionManager();
+      const state = manager.getConnectionState();
+      
+      setConnectionState({
+        isConnected: state.isConnected,
+        reconnectAttempts: state.reconnectAttempts,
+        connectionDuration: manager.getConnectionDuration(),
+        isHealthy: manager.isHealthy()
+      });
+    }, 5000); // Update every 5 seconds
+
+    return () => clearInterval(monitorConnection);
+  }, [isGenerating]);
 
   const handleStreamMessage = (message: any) => {
     switch (message.type) {
@@ -89,20 +126,28 @@ const MealPlanStreaming = ({ mode }: MealPlanStreamingProps) => {
     setMealPlan(null);
     setCurrentProgress(0);
 
-    // Import SSE manager
-    const { SSEConnectionManager } = await import('@/lib/sse-manager');
-    const manager = new SSEConnectionManager();
+    // Import enhanced SSE manager
+    const { EnhancedSSEConnectionManager } = await import('@/lib/sse-manager-enhanced-v2');
+    const { setAuthToken } = await import('@/lib/auth-cookies');
+    
+    const manager = new EnhancedSSEConnectionManager();
 
+    // Set token in cookies for backup authentication
+    setAuthToken(token, 60);
+
+    // Build URL with session_id (token will be added automatically from cookies)
     const params = new URLSearchParams({
-      session_id: sessionId,
-      token: token
+      session_id: sessionId
     });
 
     const url = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/meal-entries/stream/generate-meal-plan?${params}`;
 
+    console.log('Starting meal plan generation with session:', sessionId);
+
     const success = await manager.connect({
       url,
       onMessage: (message) => {
+        console.log('Received SSE message:', message);
         handleStreamMessage(message);
       },
       onError: (errorMessage) => {
@@ -111,14 +156,21 @@ const MealPlanStreaming = ({ mode }: MealPlanStreamingProps) => {
         setIsGenerating(false);
       },
       onOpen: () => {
-        console.log('SSE connection established');
+        console.log('SSE connection established successfully');
         setError(null);
       },
       onClose: () => {
         console.log('SSE connection closed');
         setIsGenerating(false);
       },
-      timeout: 30000
+      onReconnect: (attempt) => {
+        console.log(`SSE reconnection attempt ${attempt}`);
+        setError(`Reconnecting... (attempt ${attempt})`);
+      },
+      timeout: 30000,
+      maxReconnectAttempts: 10,
+      reconnectInterval: 5000,
+      heartbeatInterval: 30000
     });
 
     if (!success) {
@@ -336,6 +388,28 @@ const MealPlanStreaming = ({ mode }: MealPlanStreamingProps) => {
               {error && (
                 <div className="p-4 bg-red-50 border border-red-200 rounded-md">
                   <p className="text-sm text-red-600">{error}</p>
+                </div>
+              )}
+
+              {/* Connection Status Display */}
+              {isGenerating && (
+                <div className="p-3 bg-blue-50 border border-blue-200 rounded-md">
+                  <div className="flex items-center justify-between text-sm">
+                    <div className="flex items-center space-x-2">
+                      <div className={`w-2 h-2 rounded-full ${connectionState.isHealthy ? 'bg-green-500' : 'bg-yellow-500'}`}></div>
+                      <span className="text-blue-700">
+                        {connectionState.isConnected ? 'Connected' : 'Connecting...'}
+                      </span>
+                    </div>
+                    <div className="text-blue-600">
+                      {connectionState.connectionDuration > 0 && (
+                        <span>Duration: {Math.floor(connectionState.connectionDuration / 1000)}s</span>
+                      )}
+                      {connectionState.reconnectAttempts > 0 && (
+                        <span className="ml-2">Reconnects: {connectionState.reconnectAttempts}</span>
+                      )}
+                    </div>
+                  </div>
                 </div>
               )}
 

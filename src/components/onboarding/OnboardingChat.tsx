@@ -37,6 +37,7 @@ export default function OnboardingChat({ onComplete }: OnboardingChatProps) {
   const [showInitialLoadingMessage, setShowInitialLoadingMessage] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [questionKey, setQuestionKey] = useState(0)
+  const [checkingProfile, setCheckingProfile] = useState(true)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const initialized = useRef(false)
 
@@ -52,9 +53,37 @@ export default function OnboardingChat({ onComplete }: OnboardingChatProps) {
     // Initialize first question
     if (!initialized.current) {
       initialized.current = true
-      initializeChat()
+      // Ensure user profile is loaded before starting QA
+      checkUserProfileAndInitialize()
     }
   }, [])
+
+  const checkUserProfileAndInitialize = async () => {
+    try {
+      setCheckingProfile(true)
+      // First, check if user profile has required data
+      const userProfile = await apiCall('/api/users/me')
+      
+      // Check if essential profile data exists
+      const hasRequiredData = userProfile.height && userProfile.weight &&
+                            userProfile.dietary_preference && userProfile.purpose_of_joining
+      
+      if (!hasRequiredData) {
+        // If profile data is missing, redirect back to profile form
+        console.warn('Missing profile data, redirecting to profile form')
+        router.push('/onboarding')
+        return
+      }
+      
+      // Only proceed with QA if profile data is complete
+      await initializeChat()
+    } catch (error) {
+      console.error('Failed to check user profile:', error)
+      setError('Failed to load user profile. Please try again.')
+    } finally {
+      setCheckingProfile(false)
+    }
+  }
 
   const initializeChat = async () => {
     setLoading(true)
@@ -85,8 +114,13 @@ export default function OnboardingChat({ onComplete }: OnboardingChatProps) {
       setCurrentQuestions(questions)
       setCount(response.count || 0)
       setIsComplete(response.is_complete || false)
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to initialize chat:', error)
+      if (error.message?.includes('complete your profile')) {
+        // Profile data is missing, redirect to profile form
+        router.push('/onboarding')
+        return
+      }
       setError('Failed to initialize chat. Please try again.')
     } finally {
       setLoading(false)
@@ -226,15 +260,19 @@ export default function OnboardingChat({ onComplete }: OnboardingChatProps) {
                 </div>
               )}
 
-              {showInitialLoadingMessage && loading && (
+              {(showInitialLoadingMessage || checkingProfile) && (
                 <div className="flex items-center justify-center h-full">
                   <div className="text-center">
                     <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-500 mx-auto mb-4"></div>
                     <p className="text-lg font-semibold text-gray-700">
-                      Please wait while an AI Dietitian is assigned to you.
+                      {checkingProfile
+                        ? "Loading your profile data..."
+                        : "Please wait while an AI Dietitian is assigned to you."}
                     </p>
                     <p className="text-gray-500">
-                      They are currently analyzing your data to provide personalized insights.
+                      {checkingProfile
+                        ? "Verifying your health information..."
+                        : "They are currently analyzing your data to provide personalized insights."}
                     </p>
                   </div>
                 </div>
