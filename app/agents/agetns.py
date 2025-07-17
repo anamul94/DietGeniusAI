@@ -8,6 +8,8 @@ from app.constants import models
 from app.agents.memory.memory import get_memory_with_manager
 from app.constants.prompts import prompts, daily_summary
 from app.schemas.NutritionistQA import NutritionistQA
+from app.schemas.MealPlanTemplate import NutritionistMealPlanTemplate
+
 from app.schemas.nutrition import FoodNutritionResponse
 from app.agents.memory import storage as agent_storage
 # from agno.models.ollama import Ollama
@@ -170,13 +172,13 @@ def nutrition_analysis_agent():
 
 def assessment_agent():
     memory = get_memory_with_manager(
-        memory_model=model.aws_model(id=models.NOVA_PRO),
-        memory_manager_model=model.aws_model(id=models.NOVA_PRO),
+        memory_model=model.aws_model(id=models.ANTHROPIC_SONNET_3_5),
+        memory_manager_model=model.aws_model(id=models.ANTHROPIC_SONNET_3_5),
         additional_instructions="Extract patient's medical history, current health status, dietary patterns, exercise habits, biometric data, and health-impacting factors. Track progression trends and identify correlations between lifestyle factors and health outcomes."
     )
     return Agent(
         name="Clinical Assessment Specialist",
-        model=model.aws_model(id=models.ANTHROPIC_SONNET_3),
+        model=model.aws_model(id=models.NOVA_PRO),
         reasoning=False,
         goal="Generate comprehensive daily patient insights and personalized nutritional guidance based on multi-modal health data",
         instructions=dedent("""\
@@ -321,71 +323,149 @@ def meal_plan_agent():
     memory = get_memory_with_manager(
         memory_model=model.aws_model(id=models.ANTHROPIC_SONNET_3_5),
         memory_manager_model=model.aws_model(id=models.ANTHROPIC_SONNET_3_5),
-        additional_instructions="Continuously update memory with user's dietary preferences, medical conditions, nutritional goals, meal responses, and progress toward health objectives."
+        additional_instructions=(
+            "Track user's medical conditions, dietary preferences, nutritional goals, "
+            "meal responses, and health progress."
+        )
     )
-    
+
     return Agent(
-        name="Nutritionist",
-        model=model.aws_model(id=models.NOVA_PRO),
-        tools=[DuckDuckGoTools(), ReasoningTools()],
-        goal=dedent("""\
-            Provide medically-appropriate, evidence-based meal plans to help users meet specific health goals (e.g., weight loss, heart disease, pregnancy) through tailored nutrition strategies.
-        """),
+        name="Clinical Nutritionist",
+        model=model.aws_model(id=models.ANTHROPIC_SONNET_4),
+        goal=(
+            "Create medically-tailored meal plans with specific nutritional targets "
+            "and cooking resources for optimal health outcomes."
+        ),
         instructions=dedent("""\
-            You are a licensed nutritionist creating detailed, nutrition-wise meal plans personalized to the user's health profile, medical conditions, and dietary goals. Always follow these principles:
+            You are a clinical nutritionist creating therapeutic meal plans based on health conditions and goals.
+            
+            # 🥦 Dietitian Meal Planner Template
 
-            ## Information Priority:
-            1. **User Context** (age, gender, medical history, medications, labs)
-            2. **Memory System** (dietary preferences, restrictions, culture, location)
-            3. **Daily Logs** (recent meals, symptoms, activity)
-            4. **Clinical Defaults** (standard nutritional science)
+            ## 🧾 Client Information
+            | Field                      | Description                                  |
+            |---------------------------|----------------------------------------------|
+            | Full Name                 |                                              |
+            | Age / Gender              |                                              |
+            | Height / Weight / BMI     |                                              |
+            | Occupation / Lifestyle    | Sedentary / Active / Shift Work, etc.        |
+            | Location & Food Access    | For cultural and seasonal food relevance     |
+            | Dietary Goals             | Weight loss, weight gain, maintenance, etc.  |
+            | Medical History           | Diabetes, PCOS, GI issues, kidney disease, etc. |
+            | Food Allergies/Intolerances | Gluten, lactose, nuts, etc.               |
+            | Dietary Preferences       | Vegetarian, Vegan, Paleo, Low-FODMAP, etc.   |
+            | Religious/Cultural Factors| Halal, Kosher, Hindu Veg, etc.               |
 
-            ## Critical Rules:
-            - NO QUESTIONS to the user.
-            - Use ONLY the information provided.
-            - Make reasonable clinical assumptions where data is missing and clearly state them.
+            ---
 
-            ## Meal Plan Structure:
-            1. First, set a **target breakdown** (calories, protein, carbs, fats, fiber, vitamins, minerals).
-            2. Provide a **7-day meal plan** in Markdown format.
+            ## ⚕️ Clinical & Nutritional Assessment
+            | Metric / Lab Result       | Notes                                        |
+            |---------------------------|----------------------------------------------|
+            | Blood Pressure            |                                              |
+            | Fasting Blood Sugar / A1C |                                              |
+            | Lipid Profile             | HDL / LDL / Triglycerides                    |
+            | Hemoglobin / Iron Levels  |                                              |
+            | Vitamin D / B12           |                                              |
+            | Digestive Symptoms        | Bloating, constipation, GERD, etc.           |
+            | Appetite / Cravings       |                                              |
+            | Menstrual/Thyroid Status  | (if applicable)                              |
 
-            ### Example Format:
-            ### Nutritional Targets
-            - Calories: [amount]
-            - Protein: [amount]g
-            - Carbohydrates: [amount]g
-            - Fat: [amount]g
-            - Key nutrients: [specific to condition]
-            ----------------------------------------
-            | Day      | Breakfast    | Lunch     | Snack   | Dinner |
-            |----------|--------------|-----------|---------|--------|
-            | Monday   | Green Smoothie| Veggie Salad | Apple  | Avocado Toast |
+            ---
 
-            ## Special Considerations:
-            - For medical conditions (heart disease, pregnancy, diabetes, etc.), adjust meals appropriately.
-            - For weight loss or specific body composition goals, adjust calories/macros.
-            - Consider cultural, religious, and location-based factors.
-            - Prioritize whole foods, plant-based ingredients, and avoid raw or high-fat processed items.
-            - Consider the patient’s location, religious dietary restrictions, and cultural food preferences when recommending meal plans. Ensure the suggestions are practical, respectful, and locally accessible.
-            ## Additional:
-            - Provide cooking instructions when appropriate.
-            - Clearly state clinical assumptions made.
+            ## 📅 Weekly Meal Plan Overview
+            | Day       | Breakfast | Snack (AM) | Lunch | Snack (PM) | Dinner | Notes (timing, hydration, etc.) |
+            |-----------|-----------|------------|-------|------------|--------|----------------------------------|
+            | Monday    |           |            |       |            |        |                                  |
+            | Tuesday   |           |            |       |            |        |                                  |
+            | Wednesday |           |            |       |            |        |                                  |
+            | Thursday  |           |            |       |            |        |                                  |
+            | Friday    |           |            |       |            |        |                                  |
+            | Saturday  |           |            |       |            |        |                                  |
+            | Sunday    |           |            |       |            |        |                                  |
 
-            ## Tone:
-            Clinical, clear, precise. Output ONLY the meal plan and target breakdown. Nothing else.
-            Note:
-            - The user's daily log is a record of their meals, symptoms, and activity.
-            – Use web search tools to gather information on specific foods, recipes, or local availability when necessary. This step is optional and should be used only if additional context is required.
+            ---
+
+            ## 🥗 Daily Sample Meal Plan (Example)
+            ### Breakfast (7:30 AM – 9:00 AM)
+            - High-fiber cereal + low-fat milk + berries  
+            - Boiled egg / tofu scramble (protein boost)  
+            - Herbal tea / black coffee  
+
+            ### Mid-Morning Snack (11:00 AM)
+            - Fruit + handful of seeds  
+            - Coconut water  
+
+            ### Lunch (1:00 PM – 2:00 PM)
+            - Brown rice / quinoa  
+            - Grilled chicken / lentils  
+            - Cooked vegetables + salad  
+            - Low-fat yogurt  
+
+            ### Afternoon Snack (4:30 PM)
+            - Roasted chickpeas or hummus + cucumber sticks  
+            - Green tea  
+
+            ### Dinner (7:00 PM – 8:30 PM)
+            - Soup + whole grain bread  
+            - Steamed vegetables + lean protein  
+            - Herbal infusion / warm milk  
+
+            ---
+
+            ## ⚖️ Macronutrient & Caloric Breakdown (Customize Per Client)
+            | Nutrient     | Daily Goal | % of Total Calories |
+            |--------------|------------|----------------------|
+            | Calories     | 1800 kcal  | 100%                 |
+            | Carbohydrates| 200g       | ~45–50%              |
+            | Protein      | 80g        | ~20–25%              |
+            | Fat          | 50g        | ~25–30%              |
+            | Fiber        | 25–35g     |                      |
+            | Water        | 2.5–3L     |                      |
+
+            ---
+
+            ## 🔁 Food Rotation Ideas
+            - **Grains:** Oats, quinoa, bulgur, millet, brown rice  
+            - **Proteins:** Eggs, paneer, chicken, legumes, tofu  
+            - **Vegetables:** Leafy greens, carrots, gourds, peppers  
+            - **Fruits:** Banana, papaya, guava, berries, citrus  
+            - **Healthy Fats:** Nuts, seeds, olive oil, ghee (moderation)  
+
+            ---
+
+            ## 🧠 Behavior & Lifestyle Recommendations
+            | Area               | Advice                                      |
+            |--------------------|---------------------------------------------|
+            | Sleep              | 7–8 hrs/night                               |
+            | Physical Activity  | 30–45 mins most days (walk, yoga, gym)      |
+            | Stress Management  | Deep breathing, mindfulness, journaling     |
+            | Meal Timing        | Regular meals; avoid late-night eating      |
+            | Hydration          | Minimum 8–10 glasses/day                    |
+            | Supplementation    | As per deficiencies (e.g., Vitamin D, B12)  |
+
+            ---
+
+            ## 📈 Follow-Up & Monitoring Schedule
+            | Week | Goal / Focus               | Plan                               |
+            |------|----------------------------|------------------------------------|
+            | 1    | Diet initiation & adherence| Review response, adjust portions   |
+            | 2    | Monitor energy & symptoms  | Check stool, sleep, hunger cues    |
+            | 4    | Lab tests / progress check | Modify calories/macros if needed   |
+            | 6+   | Sustainable habits         | Introduce mindful eating, diversity|
+
+            > ✅ **Note to Dietitian:** Always personalize according to client’s metabolic health, local food culture, accessibility, and readiness for change.
+
+            Output ONLY the structured meal plan above. No additional text.
         """),
-        
-        system_message=dedent("""\
-            You are a Nutritionist specialized in clinical nutrition and evidence-based dietary planning.
-            Your expertise includes managing nutrition for medical conditions, optimizing health through diet, and aligning plans with user health goals.
-        """),
+        system_message=(
+            "You are a Clinical Dietitian specializing in medical nutrition therapy. "
+            "Create evidence-based meal plans that address specific health conditions through "
+            "targeted dietary interventions with practical cooking resources."
+        ),
         storage=agent_storage.USER_DAILY_LOG_SESSION_STORAGE,
         memory=memory,
         enable_user_memories=True,
         enable_agentic_memory=True,
         search_previous_sessions_history=True,
         markdown=True,
+        # use_json_mode=True,
     )

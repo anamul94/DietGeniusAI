@@ -728,8 +728,9 @@ async def upload_food_nutrition(
 @router.get("/stream/generate-meal-plan")
 async def generate_meal_plan_stream(
     session_id: str = Query(..., description="Session ID for SSE"),
-    token: str = Query(..., description="JWT token for authentication"),
+    token: str = Query(None, description="JWT token for authentication (deprecated - use cookies instead)"),
     db: Session = Depends(get_db),
+    request: Request = None,
 ):
     """
     Generate meal plan using Server-Sent Events (SSE) streaming
@@ -746,20 +747,44 @@ async def generate_meal_plan_stream(
     - `chunk`: Real-time content chunk
     - `complete`: Final complete response
     - `error`: Error message
+    
+    **Authentication:**
+    - Preferred: Use HTTP cookies (access_token)
+    - Legacy: Use query parameter token (may fail with long tokens)
     """
     logger.info(f"Generating meal plan for user with session ID: {session_id}")
-    current_user = get_current_user_from_token(token, db)
-    add_connection(session_id=session_id)
     
+    # Try to get token from cookies first, then fallback to query parameter
+    token_value = None
+    
+    # Check cookies for token
+    if request and hasattr(request, 'cookies'):
+        token_value = request.cookies.get('access_token')
+    
+    # Fallback to query parameter for backward compatibility
+    if not token_value:
+        token_value = token
+    
+    if not token_value:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authentication token required"
+        )
+    
+    current_user = get_current_user_from_token(token_value, db)
+    add_connection(session_id=session_id)
     
     return StreamingResponse(
         generate_meal_plan_streaming(user_id=current_user.id, session_id=session_id),
         media_type="text/event-stream",
         headers={
-            "Cache-Control": "no-cache",
+            "Cache-Control": "no-cache, no-store, must-revalidate",
             "Connection": "keep-alive",
+            "Keep-Alive": "timeout=3600, max=1000",  # 1 hour timeout, max 1000 requests
+            "X-Accel-Buffering": "no",  # Disable nginx buffering
             "Access-Control-Allow-Origin": "*",
-            "Access-Control-Allow-Headers": "Content-Type, Authorization",
+            "Access-Control-Allow-Headers": "Content-Type, Authorization, Cache-Control",
             "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+            "Access-Control-Expose-Headers": "Cache-Control, Connection, Keep-Alive",
         }
     )
