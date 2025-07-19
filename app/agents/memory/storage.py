@@ -27,7 +27,7 @@ GENERAL_SESSION_STORAGE = PostgresStorage(
     auto_upgrade_schema=True,
 )
 
-REDIS_SESSION_STORAGE = RedisStorage(
-   prefix="user_session",
-   port=6375,
-)
+# REDIS_SESSION_STORAGE = RedisStorage(
+#    prefix="user_session",
+#    port=6375,
+# )

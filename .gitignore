@@ -153,3 +153,4 @@ uv.lock
 .amazonq/
 alembic/
 uploads/
+data/

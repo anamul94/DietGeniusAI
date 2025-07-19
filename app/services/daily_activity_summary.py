@@ -18,6 +18,7 @@ from app.agents.agetns import assessment_agent
 from app.agents.utility_agent import report_representation_agent
 from app.services.meal_entry import get_meal_entries_by_date
 from app.services.ai_assessment_summary import create_or_update_ai_assessment_summary
+from app.services.meal_plan import get_latest_meal_plan
 import json
 import asyncio
 from app.utils.sse_session import remove_connection
@@ -357,6 +358,14 @@ async def daily_activity_assessment_by_ai_nutritionis(
             target_date=target_date
         )
         
+        # Fetch latest meal plan for the user
+        latest_meal_plan = get_latest_meal_plan(db=db, user_id=user_id)
+        meal_plan_content = None
+        meal_plan_date = None
+        if latest_meal_plan:
+            meal_plan_content = latest_meal_plan.meal_plan
+            meal_plan_date = latest_meal_plan.plan_date
+        
         # Prepare data for AI agent
         activity_summary = {}
         for activity in daily_activity_summaries:
@@ -378,6 +387,7 @@ async def daily_activity_assessment_by_ai_nutritionis(
             activity_summary = {}
         if nutrition_summary is None:
             nutrition_summary = []
+        
         # Create message for AI agent
         message = dedent(f"""\
             User Name: {user_name}
@@ -389,8 +399,14 @@ async def daily_activity_assessment_by_ai_nutritionis(
             Nutrition Data (Meal Entries):
             {nutrition_summary}
             
+            Latest Meal Plan:
+            {meal_plan_content or "No meal plan available"}
+            
+            Meal Plan Date: {meal_plan_date or "Not available"}
+            
             Please provide a comprehensive health assessment based on the user's activity and nutrition data for this date.
             Include insights about their physical activity levels, nutritional intake, and recommendations for improvement.
+            Analyze how well the user's actual nutrition intake aligns with their meal plan recommendations.
         """)
         
         # Get AI assessment
@@ -475,6 +491,14 @@ async def stream_daily_activity_assessment_by_ai_nutritionis(
             target_date=target_date
         )
         
+        # Fetch latest meal plan for the user
+        latest_meal_plan = get_latest_meal_plan(db=db, user_id=user_id)
+        meal_plan_content = None
+        meal_plan_date = None
+        if latest_meal_plan:
+            meal_plan_content = latest_meal_plan.meal_plan
+            meal_plan_date = latest_meal_plan.plan_date
+        
         # Prepare data for AI agent
         activity_summary = {}
         for activity in daily_activity_summaries:
@@ -496,6 +520,7 @@ async def stream_daily_activity_assessment_by_ai_nutritionis(
             activity_summary = {}
         if nutrition_summary is None:
             nutrition_summary = []
+        
         # Create message for AI agent
         message = dedent(f"""\
             User Name: {user_name}
@@ -507,10 +532,18 @@ async def stream_daily_activity_assessment_by_ai_nutritionis(
             Nutrition Data (Meal Entries):
             {nutrition_summary}
             
+            Latest Meal Plan patient is following:
+            {meal_plan_content or "No meal plan available"}
+            
+            Meal Plan Date: {meal_plan_date or "Not available"}
+            
             Please provide a comprehensive health assessment based on the user's activity and nutrition data for this date.
             Include insights about their physical activity levels, nutritional intake, and recommendations for improvement.
+            Also consider their target and purpose of joining the app.
+            Retrieve info from the user memory from the system use that tool.
+            Analyze how well the user's actual nutrition intake aligns with their meal plan recommendations.
         """)
-        
+        logger.info(f"Generated User Message: {message}...")  # Log first 100 chars
         yield f"data: {json.dumps({'type': 'connected', 'message': 'Starting assessment generation...'})}\n\n"
         await asyncio.sleep(0.1)
         
@@ -528,7 +561,7 @@ async def stream_daily_activity_assessment_by_ai_nutritionis(
         nutritionist_agent = assessment_agent()
         summary = ""
         chunk_index = 0
-        for chunk in nutritionist_agent.run(message=message, stream=True):
+        for chunk in nutritionist_agent.run(message=message,user_id=str(user_id), session_id=str(user_id), stream=True):
             if chunk.content is not None:
                 summary += chunk.content
                 yield f"data: {json.dumps({'type': 'chunk', 'data': chunk.content, 'chunk_index': chunk_index})}\n\n"

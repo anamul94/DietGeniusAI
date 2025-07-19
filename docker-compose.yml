@@ -8,7 +8,7 @@ services:
     environment:
       - ENVIRONMENT=production
       - DEBUG=false
-      - DATABASE_URL=postgresql://postgres:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-1234}@db:5432/${POSTGRES_DB:-deitgeniusdb}
       - SECRET_KEY=${SECRET_KEY}
       - ALLOWED_ORIGINS=http://localhost:3000,http://localhost:8080
       - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
@@ -19,24 +19,34 @@ services:
         condition: service_healthy
     volumes:
       - ./logs:/var/log/fastapi
+      - ./docker/app/init-tables.sh:/app/init-tables.sh
     restart: unless-stopped
     networks:
       - app_network
+    # Run the init-tables script after the container starts
+    command: |
+      bash -c "
+        chmod +x /app/init-tables.sh &&
+        /app/init-tables.sh &&
+        uvicorn app.main:app --host 0.0.0.0 --port 8000
+      "
+
 
   db:
     image: postgres:15-alpine
     env_file:
       - .env
     environment:
-      - POSTGRES_DB=${POSTGRES_DB}
-      - POSTGRES_USER=${POSTGRES_USER}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB:-dietgenius}
+      - POSTGRES_USER=${POSTGRES_USER:-postgres}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-password}
     volumes:
       - ./data/postgres:/var/lib/postgresql/data
+      - ./docker/postgres/init-db.sh:/docker-entrypoint-initdb.d/init-db.sh
     ports:
-      - "5433:5432"
+      - "5338:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-deitgeniusdb}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -44,18 +54,18 @@ services:
     networks:
       - app_network
 
-  redis:
-    image: redis:7-alpine
-    ports:
-      - "6379:6379"
-    volumes:
-      - redis_data:/data
-    restart: unless-stopped
-    networks:
-      - app_network
+#   redis:
+#     image: redis:7-alpine
+#     ports:
+#       - "6379:6379"
+#     volumes:
+#       - redis_data:/data
+#     restart: unless-stopped
+#     networks:
+#       - app_network
 
-volumes:
-  redis_data:
+# volumes:
+#   redis_data:
 
 networks:
   app_network:

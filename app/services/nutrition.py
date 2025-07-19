@@ -25,6 +25,7 @@ async def parse_nutrition(
         Returns:
         FoodNutritionList with parsed data or None if error
     """
+    logger.info(f"Total images  {len(files)}")
     bedrock_service = BedrockService()
     try:
         # Placeholder logic for parsing nutrition data
@@ -64,9 +65,10 @@ async def parse_nutrition(
                     Food items: {food_items}  
                     Serving size: {serving_size}
                     """
+        logger.info(f"Message to Nutrition Parser agent: {message}")
         response =  nutrition_parser_agent.run(message=message,
                                               images=images,
-                                              user_id=user_id,session_id=session_id)
+                                              user_id=str(user_id),session_id=str(user_id))
         logger.info(f"Response from Nutrition Parser agent received {type(response)}")
         
         # The agent is returning a list of food items, but our schema expects a single FoodNutrition object
