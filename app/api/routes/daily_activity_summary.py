@@ -27,7 +27,7 @@ from app.services.ai_assessment_summary import (
     get_ai_assessment_summary_by_date
 )
 from app.core.logging import logger
-from fastapi.responses import StreamingResponse
+from fastapi.responses import StreamingResponse, Response
 from app.api.deps import get_db, get_current_user_from_token
 from app.utils.sse_session import add_connection
 
@@ -222,11 +222,19 @@ async def get_assessments_by_date_range(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error fetching assessments: {str(e)}"
         )
-
-
-
-
-
+    
+    
+    @router.get("/assessment-by-date/test-auth")
+    async def test_auth(
+        token: str = Query(..., description="JWT token to test"),
+        db: Session = Depends(get_db)
+    ):
+        """Test authentication token validity."""
+        try:
+            current_user = get_current_user_from_token(token, db)
+            return {"status": "success", "user": current_user.username}
+        except Exception as e:
+            raise HTTPException(status_code=401, detail="Invalid token")
 
 
 @router.post("/process-daily-activity-data/{target_date}", response_model=List[DailyActivitySummary])
@@ -525,9 +533,9 @@ async def generate_daily_assessment_stream(
     db: Session = Depends(get_db),
     token: str = Query(..., description="JWT token for authentication"),
     sse_session_id: str = Query(..., description="Session ID for SSE"),
-        ):
+):
     try:
-        current_user = get_current_user_from_token(token,db)
+        current_user = get_current_user_from_token(token, db)
     except Exception as e:
         raise HTTPException(status_code=401, detail="Invalid token")
     
@@ -546,8 +554,23 @@ async def generate_daily_assessment_stream(
             "Cache-Control": "no-cache",
             "Connection": "keep-alive",
             "Access-Control-Allow-Origin": "*",
-            "Access-Control-Allow-Headers": "Authorization, Content-Type",
+            "Access-Control-Allow-Headers": "Authorization, Content-Type, Cache-Control",
             "Access-Control-Allow-Methods": "GET, OPTIONS",
+            "Access-Control-Allow-Credentials": "true",
+            "X-Accel-Buffering": "no",  # Disable proxy buffering
+        }
+    )
+
+
+@router.options("/stream/generate-assessment")
+async def generate_daily_assessment_stream_options():
+    """Handle CORS preflight requests for the daily assessment streaming endpoint."""
+    return Response(
+        status_code=200,
+        headers={
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "GET, OPTIONS",
+            "Access-Control-Allow-Headers": "Authorization, Content-Type, Cache-Control",
             "Access-Control-Allow-Credentials": "true",
         }
     )

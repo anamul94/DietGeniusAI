@@ -3,7 +3,7 @@ import asyncio
 import json
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, status, Query
-from fastapi.responses import StreamingResponse
+from fastapi.responses import StreamingResponse, Response
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_db, get_current_user_from_token
@@ -26,8 +26,9 @@ async def generate_assessment_stream(
     """Generate assessment with streaming chunks."""
     
     try:
-        # Send initial connection message
+        # Send initial connection message with keep-alive
         yield f"data: {json.dumps({'type': 'connected', 'message': 'Starting assessment generation...'})}\n\n"
+        yield f"retry: 3000\n\n"  # Tell client to retry after 3 seconds on error
         await asyncio.sleep(0.1)
         
         # Send progress updates
@@ -45,18 +46,28 @@ async def generate_assessment_stream(
         chunk_index = 0
         
         # Stream response from memory test agent
-        for response in agent.run(
-            message="Generate a comprehensive memory and cognitive assessment based on the user's daily activity and nutrition patterns",
-            stream=True
-        ):
-            if response is not None and hasattr(response, 'content'):
-                content = response.content
-                if content:
-                    full_response += content
-                    yield f"data: {json.dumps({'type': 'chunk', 'data': content, 'chunk_index': chunk_index})}\n\n"
-                    chunk_index += 1
-                    await asyncio.sleep(0.05)  # Small delay for smooth streaming
-        
+        try:
+            for response in agent.run(
+                message="Generate a comprehensive memory and cognitive assessment based on the user's daily activity and nutrition patterns",
+                stream=True
+            ):
+                if response is not None and hasattr(response, 'content'):
+                    content = response.content
+                    if content:
+                        full_response += content
+                        yield f"data: {json.dumps({'type': 'chunk', 'data': content, 'chunk_index': chunk_index})}\n\n"
+                        chunk_index += 1
+                        await asyncio.sleep(0.05)  # Small delay for smooth streaming
+                        
+                        # Send keep-alive every 10 chunks
+                        if chunk_index % 10 == 0:
+                            yield f"data: {json.dumps({'type': 'keepalive', 'timestamp': str(date.today())})}\n\n"
+                            
+        except Exception as agent_error:
+            logger.error(f"Error in agent streaming: {str(agent_error)}")
+            yield f"data: {json.dumps({'type': 'error', 'message': f"AI agent error: {str(agent_error)}"})}\n\n"
+            return
+            
         # Send final progress update
         yield f"data: {json.dumps({'type': 'progress', 'message': 'Finalizing assessment...', 'progress': 100})}\n\n"
         await asyncio.sleep(0.1)
@@ -70,12 +81,17 @@ async def generate_assessment_stream(
         }
         
         yield f"data: {json.dumps(final_response)}\n\n"
+        yield f"event: end\ndata: {json.dumps({'type': 'end'})}\n\n"
         
         # Add a small delay to ensure the client receives the complete message
         await asyncio.sleep(0.5)
         
+    except asyncio.CancelledError:
+        logger.warning(f"Assessment streaming cancelled for session {session_id}")
+        yield f"data: {json.dumps({'type': 'error', 'message': 'Assessment generation cancelled'})}\n\n"
+        
     except Exception as e:
-        logger.error(f"Error in assessment streaming: {str(e)}")
+        logger.error(f"Error in assessment streaming: {str(e)}", exc_info=True)
         error_response = {
             'type': 'error',
             'message': f"Error generating assessment: {str(e)}"
@@ -86,6 +102,9 @@ async def generate_assessment_stream(
         # Clean up connection
         if session_id in active_connections:
             del active_connections[session_id]
+        
+        # Send final close signal
+        yield f"data: {json.dumps({'type': 'close'})}\n\n"
 
 @router.get("/stream-assessment")
 async def stream_daily_assessment(
@@ -144,6 +163,19 @@ async def stream_daily_assessment(
             detail="Invalid authentication token"
         )
     
+    @router.options("/stream-assessment")
+    async def stream_assessment_options():
+        """Handle CORS preflight requests for the stream-assessment endpoint."""
+        return Response(
+            status_code=200,
+            headers={
+                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Methods": "GET, OPTIONS",
+                "Access-Control-Allow-Headers": "Authorization, Content-Type, Cache-Control",
+                "Access-Control-Allow-Credentials": "true",
+            }
+        )
+    
     # Register this session
     active_connections[session_id] = {
         'user_id': current_user.id,
@@ -163,9 +195,11 @@ async def stream_daily_assessment(
             "Cache-Control": "no-cache",
             "Connection": "keep-alive",
             "Access-Control-Allow-Origin": "*",
-            "Access-Control-Allow-Headers": "Authorization, Content-Type",
+            "Access-Control-Allow-Headers": "Authorization, Content-Type, Cache-Control",
             "Access-Control-Allow-Methods": "GET, OPTIONS",
             "Access-Control-Allow-Credentials": "true",
+            "X-Accel-Buffering": "no",  # Disable proxy buffering
+            "Content-Type": "text/event-stream; charset=utf-8",
         }
     )
 

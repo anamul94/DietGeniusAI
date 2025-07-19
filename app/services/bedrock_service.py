@@ -1,7 +1,7 @@
 import boto3
 from botocore.exceptions import ClientError
 from typing import List, Tuple
-from app.constants.bedrock import (
+from app.constants.models import (
     ANTHROPIC_HAIKU_3,
     ANTHROPIC_SONNET_3_5,
     ANTHROPIC_SONNET_3,

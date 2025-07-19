@@ -8,6 +8,7 @@ from fastapi import HTTPException, status
 
 from app.models.meal_plan import MealPlan
 from app.models.user import User
+from app.models.medical import MedicalReport
 from app.schemas.meal_plan import MealPlanCreate, MealPlanUpdate
 from app.core.pagination import BasePaginator, PaginationResult
 from app.core.logging import logger
@@ -210,6 +211,22 @@ def delete_meal_plan(db: Session, meal_plan_id: int) -> bool:
         logger.error(f"Error deleting meal plan: {str(e)}")
         raise MealPlanServiceError(f"Error deleting meal plan: {str(e)}")
 
+def get_latest_medical_reports(db: Session, user_id: int, limit: int = 2) -> List[MedicalReport]:
+    """
+    Get the latest medical reports for a user
+    
+    Args:
+        db: Database session
+        user_id: User ID
+        limit: Maximum number of reports to return
+        
+    Returns:
+        List of latest medical reports
+    """
+    return db.query(MedicalReport).filter(
+        MedicalReport.user_id == user_id
+    ).order_by(MedicalReport.created_at.desc()).limit(limit).all()
+
 async def generate_and_save_meal_plan(
     user_id: int,
     session_id: str,
@@ -237,6 +254,15 @@ async def generate_and_save_meal_plan(
         meal_plan_content = ""
         age = calculate_age(user.dob)
         
+        # Fetch latest medical reports
+        latest_reports = get_latest_medical_reports(db, user_id, limit=2)
+        medical_reports_data = []
+        for report in latest_reports:
+            medical_reports_data.append({
+                "report": report.medical_report,
+                "timestamp": report.created_at.isoformat()
+            })
+        
         message = f"""Generate a well defined meal plan for 7 days,
             user name: {user.username},
             gender: {user.gender},
@@ -244,7 +270,16 @@ async def generate_and_save_meal_plan(
             profession: {user.profession}
             country: {user.country},
             city: {user.city},
+            "dietary preferences": {user.dietary_preference or ''},
+            "purpose of joining": {user.purpose_of_joining or ''},
             date: {today}
+            "patient medical reports": {json.dumps(medical_reports_data) if medical_reports_data else 'none'},
+            "healthrecord timestamp": {medical_reports_data[0]['timestamp'] if medical_reports_data else 'none'}
+            <special_instructions>
+                **Provide meal plan in markdown tabular format,
+                **Set nutrtion and calorie goals based on user profile,
+                Check for healthreocrd from the system
+            </special_instructions>
         """
         
         logger.info(f"Meal plan generation message: {message}")
@@ -279,7 +314,7 @@ async def generate_meal_plan_streaming(
     session_id: str,
 ) -> AsyncGenerator[str, None]:
     """
-    Generate meal plan with streaming response
+    Generate meal plan with streaming response and heartbeat support
     
     Args:
         user_id: User ID
@@ -291,8 +326,9 @@ async def generate_meal_plan_streaming(
     db_generator = get_db()
     db = next(db_generator)
     
-    # Set timeout for the entire streaming process (5 minutes)
-    MAX_STREAMING_TIME = 300  # 5 minutes in seconds
+    # Extended timeout for long-running connections (60 minutes)
+    MAX_STREAMING_TIME = 3600  # 60 minutes in seconds
+    HEARTBEAT_INTERVAL = 30  # Send heartbeat every 30 seconds
     
     try:
         user = get_user(db, user_id)
@@ -300,8 +336,9 @@ async def generate_meal_plan_streaming(
             f"Streaming meal plan for user {user.username} with session {session_id}"
         )
         
-        # Track start time for timeout
+        # Track start time for timeout and heartbeat
         start_time = asyncio.get_event_loop().time()
+        last_heartbeat = start_time
         
         yield f"data: {json.dumps({'type': 'connection', 'message': 'Connection established'})}\n\n"
         yield f"data: {json.dumps({'type': 'progress', 'message': 'Initializing meal plan agent...', 'progress': 10})}\n\n"
@@ -311,22 +348,36 @@ async def generate_meal_plan_streaming(
         if asyncio.get_event_loop().time() - start_time > MAX_STREAMING_TIME:
             raise TimeoutError("Streaming timeout exceeded")
         
-        today = datetime.now().date()
+        today = date.today()
         meal_planner = meal_plan_agent()
         age = calculate_age(user.dob)
         
+        # Fetch latest medical reports
+        latest_reports = get_latest_medical_reports(db, user_id, limit=2)
+        medical_reports_data = []
+        for report in latest_reports:
+            medical_reports_data.append({
+                "report": report.medical_report,
+                "timestamp": report.created_at.isoformat()
+            })
+        
         message = f"""Generate a well defined meal plan for 7 days,
+        Include local foods and culturally appropriate ingredients and recipes.
             user name: {user.username},
             gender: {user.gender},
             age: {age},
             profession: {user.profession}
             country: {user.country},
             city: {user.city},
+            "dietary preferences": {user.dietary_preference or ''},
+            "purpose of joining": {user.purpose_of_joining or ''},
             date: {today}
+            "patient medical reports": {json.dumps(medical_reports_data) if medical_reports_data else 'none'},
+            "healthrecord timestamp": {medical_reports_data[0]['timestamp'] if medical_reports_data else 'none'}
         """
         
         logger.info(f"Meal plan streaming message: {message}")
-        yield f"data: {json.dumps({'type': 'progress', 'message': 'Preparing personalized meal plan...', 'progress': 20})}\n\n"
+        yield f"data: {json.dumps({'type': 'progress', 'message': 'Planing...', 'progress': 20})}\n\n"
         await asyncio.sleep(0.5)
         
         # Check for timeout
@@ -337,18 +388,36 @@ async def generate_meal_plan_streaming(
         chunk_index = 0
         meal_plan_content = ""
         
+        async def send_heartbeat_if_needed():
+            """Send heartbeat if enough time has passed"""
+            nonlocal last_heartbeat
+            current_time = asyncio.get_event_loop().time()
+            if current_time - last_heartbeat >= HEARTBEAT_INTERVAL:
+                yield f"data: {json.dumps({'type': 'heartbeat', 'timestamp': current_time})}\n\n"
+                last_heartbeat = current_time
+                logger.debug(f"Heartbeat sent for session {session_id}")
+        
         try:
             # Use asyncio.wait_for to add timeout to the agent generation
             agent_generator = meal_planner.run(
                 message=message,
-                user_id=user.id,
+                user_id=str(user.id),
                 stream=True,
             )
+            yield f"data: {json.dumps({'type': 'progress', 'message': 'Preparing personalized meal plan...', 'progress': 40})}\n\n"
+
             
             for chunk in agent_generator:
                 # Check for timeout on each chunk
-                if asyncio.get_event_loop().time() - start_time > MAX_STREAMING_TIME:
+                current_time = asyncio.get_event_loop().time()
+                if current_time - start_time > MAX_STREAMING_TIME:
                     raise TimeoutError("Streaming timeout exceeded")
+                
+                # Send heartbeat if needed
+                if current_time - last_heartbeat >= HEARTBEAT_INTERVAL:
+                    yield f"data: {json.dumps({'type': 'heartbeat', 'timestamp': current_time})}\n\n"
+                    last_heartbeat = current_time
+                    logger.debug(f"Heartbeat sent for session {session_id}")
                     
                 if chunk is not None and chunk.content:
                     yield f"data: {json.dumps({'type': 'chunk', 'data': chunk.content, 'chunk_index': chunk_index})}\n\n"
@@ -357,17 +426,25 @@ async def generate_meal_plan_streaming(
                     
                     # Add small delay to prevent overwhelming the client
                     await asyncio.sleep(0.1)
+            yield f"data: {json.dumps({'type': 'progress', 'message': 'Nutritonis generated your meal plan...', 'progress': 80})}\n\n"
+
                     
         except Exception as e:
             logger.error(f"Error during agent streaming: {str(e)}")
             raise
         
         # Check for timeout
-        if asyncio.get_event_loop().time() - start_time > MAX_STREAMING_TIME:
+        current_time = asyncio.get_event_loop().time()
+        if current_time - start_time > MAX_STREAMING_TIME:
             raise TimeoutError("Streaming timeout exceeded")
         
-        yield f"data: {json.dumps({'type': 'progress', 'message': 'Finalizing meal plan...', 'progress': 90})}\n\n"
+        # Send heartbeat before finalizing
+        if current_time - last_heartbeat >= HEARTBEAT_INTERVAL:
+            yield f"data: {json.dumps({'type': 'heartbeat', 'timestamp': current_time})}\n\n"
+            last_heartbeat = current_time
         
+        yield f"data: {json.dumps({'type': 'progress', 'message': 'Finalizing meal plan...', 'progress': 90})}\n\n"
+
         saved_meal_plan = await create_or_update_meal_plan(
             db=db,
             user_id=user_id,
@@ -387,8 +464,10 @@ async def generate_meal_plan_streaming(
         }
         yield f"data: {json.dumps(complete_response)}\n\n"
         
-        # Send end event to properly close the connection
-        yield f"data: {json.dumps({'type': 'end', 'message': 'Streaming completed'})}\n\n"
+        # Send final heartbeat and end event
+        final_time = asyncio.get_event_loop().time()
+        yield f"data: {json.dumps({'type': 'heartbeat', 'timestamp': final_time})}\n\n"
+        yield f"data: {json.dumps({'type': 'end', 'message': 'Streaming completed', 'duration': final_time - start_time})}\n\n"
     
     except asyncio.CancelledError:
         # This is expected when the client disconnects.

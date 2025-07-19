@@ -1,41 +1,47 @@
-# Use Python 3.11 slim image
-FROM python:3.12-slim
+# Multi-stage build for optimized production image
+FROM python:3.12-slim as python-base
 
 # Set environment variables
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
-    PYTHONPATH=/app
-
-# Create non-root user
-RUN groupadd -r appuser && useradd -r -g appuser appuser
-
-# Set work directory
-WORKDIR /app
+    PYTHONPATH=/app \
+    HOST=0.0.0.0 \
+    PORT=8000
 
 # Install system dependencies
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends \
-        build-essential \
-        libpq-dev \
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    libpq-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy requirements first for better caching
-COPY requirements.txt .
+# Create non-privileged user
+RUN adduser \
+    --disabled-password \
+    --gecos "" \
+    --shell "/bin/bash" \
+    --uid 1000 \
+    appuser
 
-# Install Python dependencies
-RUN pip install --no-cache-dir --upgrade pip \
-    && pip install --no-cache-dir -r requirements.txt
+# Install uv package manager
+RUN pip install --no-cache-dir uv
+
+# Set working directory
+WORKDIR /app
+
+# Copy dependency files
+COPY pyproject.toml uv.lock* ./
+
+# Install dependencies
+RUN uv pip install --system --no-cache-dir -r pyproject.toml
 
 # Copy application code
-COPY . .
+COPY --chown=appuser:appuser . .
 
-# Create log directory
-RUN mkdir -p /var/log/fastapi && chown -R appuser:appuser /var/log/fastapi
+# Create necessary directories
+RUN mkdir -p /app/logs /app/uploads && \
+    chown -R appuser:appuser /app/logs /app/uploads
 
-# Change ownership of app directory
-RUN chown -R appuser:appuser /app
-
-# Switch to non-root user
+# Switch to non-privileged user
 USER appuser
 
 # Expose port
@@ -43,7 +49,7 @@ EXPOSE 8000
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:8000/health || exit 1
+    CMD python -c "import requests; requests.get('http://localhost:8000/health', timeout=10)"
 
-# Run the application
+# Default command
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
