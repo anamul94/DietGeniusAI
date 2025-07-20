@@ -7,6 +7,7 @@ from agno.models.aws import AwsBedrock
 from agno.models.ollama import Ollama
 from agno.models.openrouter import OpenRouter
 from agno.models.groq import Groq
+from langchain_aws import ChatBedrock
 class ModelProvider:
     def __init__(self):
         pass
@@ -55,4 +56,17 @@ class ModelProvider:
         return Groq(
             id=id,
             temperature=temperature
+        )
+        
+    @staticmethod
+    def chat_bedrock(
+        id: str = ANTHROPIC_SONNET_3,
+        max_tokens: int | None = None,
+        temperature: float | None = None,
+    ):
+        return ChatBedrock(
+            model=id,
+            max_tokens=max_tokens,
+            temperature=temperature,
+            beta_use_converse_api=True,
         )

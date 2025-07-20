@@ -70,7 +70,7 @@ async def user_onboarding_qa(
         # qa_state.qa = ans.qa
         # qa_state.count = ans.count
         
-        config = {"configurable": {"thread_id": str(user_id)}}
+        config = {"configurable": {"thread_id": str(user_id)+"09"}}
         
         today = datetime.now().date()
         
@@ -145,13 +145,7 @@ async def user_onboarding_qa(
     
         # Process the user message
         # Ensure we pass the correct QAState structure expected by the graph
-        state_data = {
-            "qa": ans.qa if ans.qa else [],  # Ensure qa is a list, not None
-            "count": ans.count,
-            "medical_report": ans.medical_report or "",
-            "summary": "",
-            "questions": None
-        }
+       
         
         user_message = qa.start_qa_message_template.format(
             patient_info=json.dumps(user_profile),
@@ -161,7 +155,7 @@ async def user_onboarding_qa(
             date = today.strftime("%Y-%m-%d")
         )
         RedisQuestionStorage.save_questions(user_id=user_id, question=user_message)
-        response = graph.invoke({"message":user_message}, config=config)
+        response =  graph.invoke({"message":user_message}, config=config)
         # print(list(graph.get_state_history(config)))
         
         return QA(
@@ -170,30 +164,7 @@ async def user_onboarding_qa(
             summary=""
         )
 
-        # logger.info(f"QA Agent response for user {user_id}, round {current_count}: {response}")
-        # # qa = response.content
-        # # if qa.is_complete:
-        # #     user.onboarding_status = "completed"
-        # #     db.add(user)
-        # #     db.commit()
-        # #     response = agent.get_session_summary( user_id=str(user_id), session_id=str(user_id))
-        # #     logger.info(f"Onboarding completed for user {user_id}")
-        # #     summary =  response.summary 
-        # #     return QA(
-        # #         data=NutritionistQA(
-        # #             questions=[],
-        # #             is_complete=True,
-        # #             message_on_completion="Onboarding completed successfully.",
-        # #         ),
-        # #         count=current_count+1,
-        # #         summary=summary
-        # #     )
-        # # return  QA(
-        # #     data=response.content,
-        # #     count=current_count,
-        # #     summary=""
-        # # )
-        # return response
+       
         
     except HTTPException:
         # Re-raise HTTP exceptions (like validation errors)
