@@ -20,6 +20,12 @@ async def lifespan(app: FastAPI):
     # Startup code
     logger.info("Starting up application...")
     
+    # Check Redis connection
+    from app.db.redis import check_redis_connection
+    redis_connected = check_redis_connection()
+    if not redis_connected:
+        logger.warning("Redis is not available - some features may be limited")
+    
     # This yields control back to FastAPI
     yield
     
@@ -117,3 +123,16 @@ def root():
 def health_check():
     logger.info("Health check endpoint accessed")
     return {"status": "healthy"}
+
+@app.get("/health/redis")
+def redis_health_check():
+    """Health check endpoint specifically for Redis connection"""
+    from app.db.redis import check_redis_connection
+    
+    logger.info("Redis health check endpoint accessed")
+    redis_connected = check_redis_connection()
+    
+    if redis_connected:
+        return {"status": "healthy", "redis": "connected"}
+    else:
+        return {"status": "unhealthy", "redis": "disconnected"}

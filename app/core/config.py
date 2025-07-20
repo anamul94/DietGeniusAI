@@ -68,6 +68,10 @@ class Settings(BaseSettings):
     OTEL_EXPORTER_OTLP_ENDPOINT: Optional[str] = os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT")
     OTEL_EXPORTER_OTLP_HEADERS: Optional[str] = os.getenv("OTEL_EXPORTER_OTLP_HEADERS")
     
+    REDIS_HOST: Optional[str] = os.getenv("REDIS_HOST")
+    REDIS_PORT: Optional[int] = int(os.getenv("REDIS_PORT", 6379))
+    REDIS_DB: Optional[int] = int(os.getenv("REDIS_DB", 0))
+    
     @property
     def is_production(self) -> bool:
         return self.ENVIRONMENT.lower() == "production"

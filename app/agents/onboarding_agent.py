@@ -35,7 +35,7 @@ def qa_node(state: QAState):
     # Create a new instance of the ChatBedrock class
     print("Creating ChatBedrock instance")
     chat_bedrock = ChatBedrock(
-        model=models.ANTHROPIC_SONNET_3,
+        model=models.NOVA_PRO,
         temperature=0.1,
         beta_use_converse_api=True,
     )

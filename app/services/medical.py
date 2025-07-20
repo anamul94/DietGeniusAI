@@ -15,6 +15,8 @@ from app.schemas.qa import QAAnsReq, QA, QAState
 from app.utils.age_calculator import calculate_age
 import json
 from datetime import datetime
+from app.services.redis_storage import RedisQuestionStorage
+from app.constants.prompts import qa
 
 class MedicalReportPaginator(BasePaginator):
     def get_query(self, user_id: int):
@@ -102,7 +104,8 @@ async def user_onboarding_qa(
         logger.info(f"User profile data for onboarding: user_id={user_id}, "
                    f"height={user.height}, weight={user.weight}, bmi={user.bmi}, "
                    f"dietary_preference={user.dietary_preference}, purpose_of_joining={user.purpose_of_joining}")
-            
+        reports_data = [] 
+        user_profile = {}  
         if ans.count == 0:
             # First round - include user profile and medical reports
             medical_reports = get_user_medical_reports_paginated(
@@ -112,7 +115,7 @@ async def user_onboarding_qa(
                 limit=2
             )
             
-            reports_data = []
+           
             if medical_reports and medical_reports.items:
                 reports_data = [{
                     "id": str(report.id),
@@ -122,62 +125,23 @@ async def user_onboarding_qa(
             # qa_state.medical_report = json.dumps(reports_data)
             # Create data structure with user info
             # Handle null values gracefully
-            # user_profile = {
-            #     "gender": user.gender or "Not specified",
-            #     "age": calculate_age(user.dob) if user.dob else "Not specified",
-            #     "profession": user.profession or "Not specified",
-            #     "height": user.height or 0,
-            #     "weight": user.weight or 0,
-            #     "bmi": user.bmi or 0,
-            #     "dietary_preference": user.dietary_preference or "Not specified",
-            #     "purpose_of_joining": user.purpose_of_joining or "Not specified"
-            # }
+            user_profile = {
+                "gender": user.gender or "Not specified",
+                "age": calculate_age(user.dob) if user.dob else "Not specified",
+                "profession": user.profession or "Not specified",
+                "height": user.height or 0,
+                "weight": user.weight or 0,
+                "bmi": user.bmi or 0,
+                "dietary_preference": user.dietary_preference or "Not specified",
+                "purpose_of_joining": user.purpose_of_joining or "Not specified"
+            }
             
-            # # Only include valid measurements
-            # if user.height and user.weight:
-            #     user_profile["bmi"] = user.bmi or round(user.weight / ((user.height / 100) ** 2), 2)
+            # Only include valid measurements
+            if user.height and user.weight:
+                user_profile["bmi"] = user.bmi or round(user.weight / ((user.height / 100) ** 2), 2)
             
-            # data_dict = {
-            #     "reports": reports_data,
-            #     "user_profile": user_profile,
-            #     "user_responses": ans.get_combined_answers(),
-            #     "qa_round": current_count,
-            #     "date": str(today),
-            #     "questions_and_answers": [{"question": qa.question, "answer": qa.answer} for qa in ans.qa]
-            # }
-            
-            # user_message = json.dumps(data_dict)
-        # elif ans.count >= 3:
-        #     # Complete onboarding
-        #     user.onboarding_status = "completed"
-        #     db.add(user)
-        #     db.commit()
-        #     response = agent.run(user_message)
-        #     summary = agent.get_session_summary( user_id=str(user_id), session_id=str(user_id))
-        #     logger.info(f"Summary {response}")
-        #     logger.info(f"Onboarding completed for user {user_id}")
-        #     summary =  summary.summary
-        #     return QA(
-        #         data=NutritionistQA(
-        #             questions=[],
-        #             is_complete=True,
-        #             message_on_completion="Onboarding completed successfully.",
-        #         ),
-        #         count=current_count,
-        #         summary=summary
-        #     )
-        else:
-            # Subsequent rounds
-            
-            # data = {
-            #     "Patient Responses": ans.get_combined_answers(),
-            #     "qa_round": current_count,
-            #     "questions_and_answers": [{"question": qa.question, "answer": qa.answer} for qa in ans.qa],
-            #     "date": str(today)
-            # }
-            # user_message = json.dumps(data)
-            # logger.info(f"User message type   {type(qa_state)}")
-         logger.info(f"User message for round  {ans.qa}")
+           
+        logger.info(f"User message for round  {ans.qa}")
     
         # Process the user message
         # Ensure we pass the correct QAState structure expected by the graph
@@ -188,9 +152,17 @@ async def user_onboarding_qa(
             "summary": "",
             "questions": None
         }
-        # response = graph.invoke({"qa":ans.qa, "count":ans.count, "medical_report": ""}, config=config)
-        response = graph.invoke({"message":"suffering from high bp"}, config=config)
-        print(response)
+        
+        user_message = qa.start_qa_message_template.format(
+            patient_info=json.dumps(user_profile),
+            medical_report=json.dumps(reports_data),
+            patient_response=ans.qa,
+            qa_round_number=ans.count + 1,
+            date = today.strftime("%Y-%m-%d")
+        )
+        RedisQuestionStorage.save_questions(user_id=user_id, question=user_message)
+        response = graph.invoke({"message":user_message}, config=config)
+        # print(list(graph.get_state_history(config)))
         
         return QA(
             data=response["questions"],
