@@ -11,7 +11,20 @@ logger = setup_logger()
 
 # Import and call create_tables script
 from app.db.create_tables import create_all_tables
+# Middleware imports moved to where they're used
+from contextlib import asynccontextmanager
+
 create_all_tables()
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup code
+    logger.info("Starting up application...")
+    
+    # This yields control back to FastAPI
+    yield
+    
+    # Shutdown code
+    logger.info("Shutting down application...")
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
@@ -49,18 +62,9 @@ app = FastAPI(
         }
     ],
     docs_url="/api/docs",
-    redoc_url="/api/redoc"
+    redoc_url="/api/redoc",
+    lifespan=lifespan
 )
-
-# Improved SessionMiddleware settings for OAuth session reliability
-app.add_middleware(
-    SessionMiddleware,
-    secret_key=settings.SECRET_KEY,
-    session_cookie="session",
-    same_site="lax",
-    https_only=False # Set to True in production with HTTPS
-)
-logger.info(f"Session secret key: {settings.SECRET_KEY}")
 
 # Set CORS
 app.add_middleware(
@@ -70,6 +74,26 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"]
 )
+
+# Improved SessionMiddleware settings for OAuth session reliability
+app.add_middleware(
+    SessionMiddleware,
+    secret_key=settings.SECRET_KEY,
+    session_cookie="session",
+    same_site="lax",
+    https_only=False  # Set to True in production with HTTPS
+)
+
+# Add custom middleware using decorator approach
+from app.utils.logging_middleware import RequestLoggingMiddleware
+from app.utils.debug_middleware import DebugMiddleware
+
+# Add middleware using add_middleware method
+app.add_middleware(RequestLoggingMiddleware)
+app.add_middleware(DebugMiddleware)
+
+logger.info(f"Session secret key: {settings.SECRET_KEY}")
+
 
 # Include routers
 from app.api.routes import auth
@@ -82,13 +106,7 @@ app.include_router(daily_activity_summary.router, prefix="/api/daily-activity", 
 app.include_router(assessment_streaming.router, prefix="/api/assessment-streaming", tags=["assessment-streaming"])
 app.include_router(websocket.router)
 
-@app.on_event("startup")
-async def startup_event():
-    logger.info("Starting up application...")
-
-@app.on_event("shutdown")
-async def shutdown_event():
-    logger.info("Shutting down application...")
+# Application is now using lifespan parameter for startup/shutdown events
 
 @app.get("/")
 def root():

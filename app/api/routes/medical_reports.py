@@ -123,15 +123,15 @@ async def get_medical_reports(
 
 
 
-@router.post("/onboarding-qa", response_model=NutritionistQA)
+@router.post("/onboarding-qa", response_model=QA)
 async def onboarding_qa(
     ans: QAAnsReq,
     current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db)
 ):
     try:
-        logger.info(f"User {current_user.id} onboarding QA request body: {ans.to_json()}")
-        logger.info(f"User {current_user.id} is answering onboarding QA. Count: {ans.count}, QA items: {len(ans.qa)}")
+        # logger.info(f"User {current_user.id} onboarding QA request body: {ans.to_json()}")
+        # logger.info(f"User {current_user.id} is answering onboarding QA. Count: {ans.count}, QA items: {len(ans.qa)}")
         # Generate next question based on count
         return await user_onboarding_qa(ans=ans, user_id=current_user.id, db=db)
     except HTTPException:

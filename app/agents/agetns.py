@@ -5,7 +5,7 @@ from textwrap import dedent
 from agno.agent import Agent
 from app.agents.models.model_provider import ModelProvider
 from app.constants import models
-from app.agents.memory.memory import get_memory_with_manager
+from app.agents.memory.memory import get_memory_with_manager, get_memory_with_session_summarizer
 from app.constants.prompts import prompts, daily_summary
 from app.schemas.NutritionistQA import NutritionistQA
 from app.schemas.MealPlanTemplate import NutritionistMealPlanTemplate
@@ -22,6 +22,8 @@ import datetime
 from agno.tools.duckduckgo import DuckDuckGoTools
 from agno.tools.thinking import ThinkingTools
 from agno.tools.reasoning import ReasoningTools
+from agno.memory.v2.summarizer import SessionSummarizer
+
 
 
 # instrument_agno()
@@ -36,11 +38,12 @@ import openlit
 model = ModelProvider()
 
 def user_onboarding_agent():
-    memory = get_memory_with_manager(
+    memory = get_memory_with_session_summarizer(
         memory_model=model.aws_model(id=models.NOVA_PRO),
         memory_manager_model=model.aws_model(id=models.NOVA_PRO),
-        additional_instructions=prompts.MEMORY_CAPTURE_INSTRUCTIONS,
+        additional_instructions=prompts.MEMORY_CAPTURE_INSTRUCTIONS,    
     )
+    
     return Agent(
     name="Clinical Dietitian",
     model=model.aws_model(id=models.ANTHROPIC_SONNET_3),
@@ -78,6 +81,9 @@ def user_onboarding_agent():
                - Use text input for open-ended responses
                - Use scales (1-10) for subjective assessments (energy levels, stress, etc.)
                - Frame questions positively and non-judgmentally
+               - Avoid leading questions or assumptions
+               - No Repatition: If a question has already been answered, do not ask it again
+               - What already have in profile or memory don't ask again
 
             5. **Completion Criteria**
                - When sufficient information is gathered for a comprehensive nutrition plan
@@ -105,8 +111,9 @@ def user_onboarding_agent():
     memory=memory,
     storage =agent_storage.USER_DAILY_LOG_SESSION_STORAGE,
     search_previous_sessions_history=True,
-    add_history_to_messages=2,
-    num_history_runs=2,
+    enable_session_summaries=True,
+    add_history_to_messages=3,
+    num_history_runs=3,
     enable_user_memories=True,
     structured_outputs=True,
     )

@@ -9,8 +9,9 @@ from app.models.user import User, OnboardingStatus
 from sqlalchemy import desc
 from app.core.pagination import BasePaginator, PaginationResult
 from app.agents.agetns import user_onboarding_agent, get_memory_test_agent
+from app.agents.onboarding_agent import graph
 from fastapi import Depends
-from app.schemas.qa import QAAnsReq, QA
+from app.schemas.qa import QAAnsReq, QA, QAState
 from app.utils.age_calculator import calculate_age
 import json
 from datetime import datetime
@@ -60,9 +61,15 @@ async def user_onboarding_qa(
                 status_code=400,
                 detail="Please answer all questions before proceeding."
             )
+        # qa_state = QAState(
+        #     qa=ans.qa,
+        #     count=ans.count,
+        # )
+        # qa_state.qa = ans.qa
+        # qa_state.count = ans.count
         
-        agent = user_onboarding_agent()
-        user_message = ""
+        config = {"configurable": {"thread_id": str(user_id)}}
+        
         today = datetime.now().date()
         
         # Increment count for tracking
@@ -112,61 +119,109 @@ async def user_onboarding_qa(
                     "medical_report": report.medical_report,
                     "uploaded_at": str(report.created_at)
                 } for report in medical_reports.items]
-            
+            # qa_state.medical_report = json.dumps(reports_data)
             # Create data structure with user info
             # Handle null values gracefully
-            user_profile = {
-                "gender": user.gender or "Not specified",
-                "age": calculate_age(user.dob) if user.dob else "Not specified",
-                "profession": user.profession or "Not specified",
-                "height": user.height or 0,
-                "weight": user.weight or 0,
-                "bmi": user.bmi or 0,
-                "dietary_preference": user.dietary_preference or "Not specified",
-                "purpose_of_joining": user.purpose_of_joining or "Not specified"
-            }
+            # user_profile = {
+            #     "gender": user.gender or "Not specified",
+            #     "age": calculate_age(user.dob) if user.dob else "Not specified",
+            #     "profession": user.profession or "Not specified",
+            #     "height": user.height or 0,
+            #     "weight": user.weight or 0,
+            #     "bmi": user.bmi or 0,
+            #     "dietary_preference": user.dietary_preference or "Not specified",
+            #     "purpose_of_joining": user.purpose_of_joining or "Not specified"
+            # }
             
-            # Only include valid measurements
-            if user.height and user.weight:
-                user_profile["bmi"] = user.bmi or round(user.weight / ((user.height / 100) ** 2), 2)
+            # # Only include valid measurements
+            # if user.height and user.weight:
+            #     user_profile["bmi"] = user.bmi or round(user.weight / ((user.height / 100) ** 2), 2)
             
-            data_dict = {
-                "reports": reports_data,
-                "user_profile": user_profile,
-                "user_responses": ans.get_combined_answers(),
-                "qa_round": current_count,
-                "date": str(today),
-                "questions_and_answers": [{"question": qa.question, "answer": qa.answer} for qa in ans.qa]
-            }
+            # data_dict = {
+            #     "reports": reports_data,
+            #     "user_profile": user_profile,
+            #     "user_responses": ans.get_combined_answers(),
+            #     "qa_round": current_count,
+            #     "date": str(today),
+            #     "questions_and_answers": [{"question": qa.question, "answer": qa.answer} for qa in ans.qa]
+            # }
             
-            user_message = json.dumps(data_dict)
-        elif ans.count >= 3:
-            # Complete onboarding
-            user.onboarding_status = "completed"
-            db.add(user)
-            db.commit()
-            response = agent.run(message="Done, summarize the session", user_id=str(user_id), session_id=str(user_id))
-            logger.info(f"Onboarding completed for user {user_id}")
-            return response.content
+            # user_message = json.dumps(data_dict)
+        # elif ans.count >= 3:
+        #     # Complete onboarding
+        #     user.onboarding_status = "completed"
+        #     db.add(user)
+        #     db.commit()
+        #     response = agent.run(user_message)
+        #     summary = agent.get_session_summary( user_id=str(user_id), session_id=str(user_id))
+        #     logger.info(f"Summary {response}")
+        #     logger.info(f"Onboarding completed for user {user_id}")
+        #     summary =  summary.summary
+        #     return QA(
+        #         data=NutritionistQA(
+        #             questions=[],
+        #             is_complete=True,
+        #             message_on_completion="Onboarding completed successfully.",
+        #         ),
+        #         count=current_count,
+        #         summary=summary
+        #     )
         else:
             # Subsequent rounds
-            data = {
-                "Patient Responses": ans.get_combined_answers(),
-                "qa_round": current_count,
-                "questions_and_answers": [{"question": qa.question, "answer": qa.answer} for qa in ans.qa],
-                "date": str(today)
-            }
-            user_message = json.dumps(data)
+            
+            # data = {
+            #     "Patient Responses": ans.get_combined_answers(),
+            #     "qa_round": current_count,
+            #     "questions_and_answers": [{"question": qa.question, "answer": qa.answer} for qa in ans.qa],
+            #     "date": str(today)
+            # }
+            # user_message = json.dumps(data)
+            # logger.info(f"User message type   {type(qa_state)}")
+         logger.info(f"User message for round  {ans.qa}")
     
         # Process the user message
-        response = agent.run(message=user_message, user_id=str(user_id), session_id=str(user_id))
-        logger.info(f"QA Agent response for user {user_id}, round {current_count}: {response.content}")
-        qa = response.content
-        if qa.is_complete:
-            user.onboarding_status = "completed"
-            db.add(user)
-            db.commit()
-        return response.content
+        # Ensure we pass the correct QAState structure expected by the graph
+        state_data = {
+            "qa": ans.qa if ans.qa else [],  # Ensure qa is a list, not None
+            "count": ans.count,
+            "medical_report": ans.medical_report or "",
+            "summary": "",
+            "questions": None
+        }
+        # response = graph.invoke({"qa":ans.qa, "count":ans.count, "medical_report": ""}, config=config)
+        response = graph.invoke({"message":"suffering from high bp"}, config=config)
+        print(response)
+        
+        return QA(
+            data=response["questions"],
+            count=current_count,
+            summary=""
+        )
+
+        # logger.info(f"QA Agent response for user {user_id}, round {current_count}: {response}")
+        # # qa = response.content
+        # # if qa.is_complete:
+        # #     user.onboarding_status = "completed"
+        # #     db.add(user)
+        # #     db.commit()
+        # #     response = agent.get_session_summary( user_id=str(user_id), session_id=str(user_id))
+        # #     logger.info(f"Onboarding completed for user {user_id}")
+        # #     summary =  response.summary 
+        # #     return QA(
+        # #         data=NutritionistQA(
+        # #             questions=[],
+        # #             is_complete=True,
+        # #             message_on_completion="Onboarding completed successfully.",
+        # #         ),
+        # #         count=current_count+1,
+        # #         summary=summary
+        # #     )
+        # # return  QA(
+        # #     data=response.content,
+        # #     count=current_count,
+        # #     summary=""
+        # # )
+        # return response
         
     except HTTPException:
         # Re-raise HTTP exceptions (like validation errors)

@@ -6,6 +6,7 @@ from app.constants.models import ANTHROPIC_SONNET_3
 from agno.models.aws import AwsBedrock
 from agno.models.ollama import Ollama
 from agno.models.openrouter import OpenRouter
+from agno.models.groq import Groq
 class ModelProvider:
     def __init__(self):
         pass
@@ -42,5 +43,16 @@ class ModelProvider:
         return OpenRouter(
             id=id,
             max_tokens=max_tokens,
+            temperature=temperature
+        )
+        
+    def groq_model(
+        self,
+        id: str,
+        max_tokens: Optional[int] = None,
+        temperature: Optional[float] = 0.1
+    ):
+        return Groq(
+            id=id,
             temperature=temperature
         )
