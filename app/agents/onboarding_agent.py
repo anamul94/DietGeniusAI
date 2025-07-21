@@ -6,6 +6,9 @@ from app.core.config import Settings
 
 from typing_extensions import TypedDict
 from langgraph.graph import StateGraph, START, END
+from langgraph.prebuilt import create_react_agent
+from langmem import create_manage_memory_tool, create_search_memory_tool
+
 
 from app.schemas.qa import QAAnsReq, QAState, QA
 from app.schemas.NutritionistQA import NutritionistQA
@@ -14,6 +17,8 @@ from app.constants import models
 from app.constants.prompts import qa
 from app.agents.memory import get_checkpointer
 from app.agents.models.model_provider import ModelProvider
+from app.agents.memory.pg_store import store
+
 
 settings = Settings()
 
@@ -57,7 +62,27 @@ graph_builder.add_node("qa_node", qa_node)
 graph_builder.add_edge(START, "qa_node")
 graph_builder.add_edge("qa_node", END)
 graph = graph_builder.compile(checkpointer=checkpointer)
-def generate_summary(config):
+
+
+
+def generate_summary(message:str, config):
     """Generate summary using the checkpointer."""
-    checkpointer(graph)
+    
+    agent =  create_react_agent(
+        model=ModelProvider.chat_bedrock(
+            id=models.NOVA_PRO,
+            max_tokens=4096,
+            temperature=0.1,
+        ),
+        system_message=qa.qa_session_summarizer_sys_prompt,
+        tools=[],
+    )
+    
+    response = agent.invoke(
+    {"messages": [{"role": "user", "content": message}]},
+    config=config,
+)
+    return response["messages"][-1].content
+
+    
     

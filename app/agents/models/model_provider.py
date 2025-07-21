@@ -8,6 +8,10 @@ from agno.models.ollama import Ollama
 from agno.models.openrouter import OpenRouter
 from agno.models.groq import Groq
 from langchain_aws import ChatBedrock
+from langchain_aws.embeddings import BedrockEmbeddings
+from langchain_ollama import ChatOllama
+
+
 class ModelProvider:
     def __init__(self):
         pass
@@ -24,15 +28,16 @@ class ModelProvider:
             max_tokens=max_tokens,
             temperature=temperature
         )
-        
+     
+    @staticmethod   
     def ollama_model(
         self,
         id: str,
         max_tokens: Optional[int] = None,
         temperature: Optional[float] = 0.1
     ):
-        return Ollama(
-            id=id,
+        return ChatOllama(
+            model=id
         )
         
     def openrouter_model(
@@ -69,4 +74,14 @@ class ModelProvider:
             max_tokens=max_tokens,
             temperature=temperature,
             beta_use_converse_api=True,
+        )
+        
+    @staticmethod
+    def bedrock_embeddings(
+        id: str = ANTHROPIC_SONNET_3,
+        
+    ):
+        return BedrockEmbeddings(
+            model_id=id,
+           
         )

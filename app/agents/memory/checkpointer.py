@@ -7,7 +7,6 @@ from typing import Optional
 from langgraph.checkpoint.postgres import PostgresSaver
 from langgraph.checkpoint.base import BaseCheckpointSaver
 from app.core.config import Settings
-import psycopg
 from psycopg import Connection
 
 settings = Settings()

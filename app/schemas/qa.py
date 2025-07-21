@@ -39,7 +39,7 @@ class QAAnsReq(BaseModel):
         return any(not qa.answer.strip() for qa in self.qa)
 
 class QA(BaseModel):
-    data: NutritionistQA = Field(description="Question")
+    data: Optional[NutritionistQA] = Field(description="Question")
     count: int = Field(description="QA Count Value", default_factory=0)
     summary: str = Field(description="QA Summary", default="")
     

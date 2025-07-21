@@ -6,7 +6,8 @@ from app.constants.models import (
     ANTHROPIC_SONNET_3_5,
     ANTHROPIC_SONNET_3,
     ANTHROPIC_SONNET_4,
-    NOVA_LITE,NOVA_PRO
+    NOVA_LITE,NOVA_PRO,
+    META_LLMA_3_70B,
 )
 
 from app.core.logging import logger
@@ -125,7 +126,7 @@ class BedrockService:
 
             try:
                 response = self.client.converse(
-                    modelId=ANTHROPIC_SONNET_3,
+                    modelId=META_LLMA_3_70B,
                     messages=conversation,
                     inferenceConfig={"temperature": 0.1},
                 )

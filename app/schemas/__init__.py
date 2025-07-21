@@ -7,3 +7,4 @@ from app.schemas.meal_entry import (
     MealEntryPagination,
     MealTypeCheck
 )
+from app.schemas.qa_session_summary import QASessionSummaryCreate, QASessionSummaryResponse

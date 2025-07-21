@@ -5,18 +5,20 @@ from typing import Optional
 from app.core.logging import logger
 from app.schemas.NutritionistQA import NutritionistQA
 from app.models.medical import MedicalReport
-from app.models.user import User, OnboardingStatus
+from app.models.user import User
+from app.models.qa_session_summary import QASessionSummary
 from sqlalchemy import desc
 from app.core.pagination import BasePaginator, PaginationResult
 from app.agents.agetns import user_onboarding_agent, get_memory_test_agent
-from app.agents.onboarding_agent import graph
-from fastapi import Depends
+from app.agents.onboarding_agent import graph, generate_summary
 from app.schemas.qa import QAAnsReq, QA, QAState
+from app.schemas.qa_session_summary import QASessionSummaryCreate
 from app.utils.age_calculator import calculate_age
 import json
 from datetime import datetime
 from app.services.redis_storage import RedisQuestionStorage
 from app.constants.prompts import qa
+from app.agents.memory.pg_store import store_manager
 
 class MedicalReportPaginator(BasePaginator):
     def get_query(self, user_id: int):
@@ -70,7 +72,7 @@ async def user_onboarding_qa(
         # qa_state.qa = ans.qa
         # qa_state.count = ans.count
         
-        config = {"configurable": {"thread_id": str(user_id)+"09"}}
+        config = {"configurable": {"thread_id": str(user_id)+"09", "user_id": str(user_id)} }
         
         today = datetime.now().date()
         
@@ -146,7 +148,8 @@ async def user_onboarding_qa(
         # Process the user message
         # Ensure we pass the correct QAState structure expected by the graph
        
-        
+        past_conversations = RedisQuestionStorage.get_questions(user_id=user_id)
+        past_conversations = json.dumps(past_conversations)
         user_message = qa.start_qa_message_template.format(
             patient_info=json.dumps(user_profile),
             medical_report=json.dumps(reports_data),
@@ -154,14 +157,67 @@ async def user_onboarding_qa(
             qa_round_number=ans.count + 1,
             date = today.strftime("%Y-%m-%d")
         )
+        
+        if ans.count > 3:
+            user_message + "\n\nPlease completed the onboarding process."
+        
         RedisQuestionStorage.save_questions(user_id=user_id, question=user_message)
+        print("user message")
+        # print(user_message)
+        user_message + "\n\nPast conversations: " + past_conversations
         response =  graph.invoke({"message":user_message}, config=config)
+        summary = ""
+        print("accessing is completed")
+        # print(response["questions"]["is_complete"])
         # print(list(graph.get_state_history(config)))
+        if response["questions"].is_complete or ans.count >3:
+            conversations = RedisQuestionStorage.get_questions(user_id=user_id)
+            conv_summ_msg = qa.qa_conversation_summ_user_template.format(
+                conversation=conversations,
+                date= today.strftime("%Y-%m-%d")
+            )
+            summary = generate_summary(message=conv_summ_msg)
+            store_manager.invoke({
+                "messages": conv_summ_msg,
+            }, config=config)
+            # Update user onboarding status to completed
+            user.onboarding_status = "completed"
+            db.add(user)
+            db.commit()
+            
+            # Save summary to database
+            try:
+                qa_summary = QASessionSummary(
+                    user_id=user_id,
+                    session_type="base_condition",
+                    summary=summary,
+                    conversation_data={
+                        "conversations": conversations,
+                        "qa_rounds": current_count,
+                        "completed_at": datetime.now().isoformat()
+                    },
+                    session_metadata={
+                        "session_type": "base_condition",
+                        "questions_count": len(ans.qa) if ans.qa else 0,
+                        "completion_round": current_count
+                    }
+                )
+                db.add(qa_summary)
+                db.commit()
+                logger.info(f"QA session summary saved for user {user_id}")
+               
+            except SQLAlchemyError as e:
+                logger.error(f"Error saving QA session summary: {str(e)}")
+                db.rollback()
+                # Continue even if summary save fails - don't block user completion
+            
+            db.commit()
+            
         
         return QA(
             data=response["questions"],
             count=current_count,
-            summary=""
+            summary=summary,
         )
 
        

@@ -98,3 +98,4 @@ class User(Base):
     daily_activity_summaries = relationship("DailyActivitySummary", back_populates="user")
     ai_assessment_summaries = relationship("AIAssessmentSummary", back_populates="user")
     water_intakes = relationship("WaterIntake", back_populates="user")
+    qa_session_summaries = relationship("QASessionSummary", back_populates="user")
