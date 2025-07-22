@@ -92,7 +92,10 @@ export default function ProfileForm({ onComplete }: ProfileFormProps) {
           apiCall('/api/users/joining-purposes')
         ])
 
-        if (profileData.onboarding_status === 'completed') {
+        // Check if this is a restart request
+        const isRestart = window.location.search.includes('restart=true')
+        
+        if (profileData.onboarding_status === 'completed' && !isRestart) {
           router.push('/dashboard')
           return
         }

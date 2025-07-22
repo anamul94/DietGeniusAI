@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card'
 import { Button } from '@/components/ui/button'
 import { apiCall } from '@/lib/utils'
-import { User, FileText, Activity, Settings, LogOut, Brain } from 'lucide-react'
+import { User, FileText, Activity, Settings, LogOut, Brain, RefreshCw } from 'lucide-react'
 import GoogleHealthLogin from '@/components/auth/GoogleHealthLogin'
 import GoogleHealthDataFetcher from '@/components/google-health/GoogleHealthDataFetcher'
 import GoogleHealthStatusAndRevoke from '@/components/google-health/GoogleHealthStatusAndRevoke'
@@ -283,6 +283,30 @@ export default function DashboardPage() {
             </CardHeader>
             <CardContent>
               <GoogleHealthStatusAndRevoke />
+            </CardContent>
+          </Card>
+
+          {/* Restart QA Card */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <RefreshCw className="w-5 h-5 text-primary" />
+                Restart Assessment
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-muted-foreground mb-4">
+                Want to update your health profile? Restart the questionnaire to get updated recommendations based on your current health status.
+              </p>
+              <Button
+                variant="default"
+                size="sm"
+                className="w-full bg-purple-600 hover:bg-purple-700"
+                onClick={() => router.push('/onboarding?restart=true')}
+              >
+                <RefreshCw className="w-4 h-4 mr-2" />
+                Start New Assessment
+              </Button>
             </CardContent>
           </Card>
         </div>
