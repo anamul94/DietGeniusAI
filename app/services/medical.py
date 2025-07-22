@@ -147,7 +147,9 @@ async def user_onboarding_qa(
     
         # Process the user message
         # Ensure we pass the correct QAState structure expected by the graph
-       
+        additional_instrcution= ""
+        if ans.count > 1:
+            additional_instrcution + "\n\nPlease completed the onboarding process.  set is_complete to true and in question and other field default value "
         past_conversations = RedisQuestionStorage.get_questions(user_id=user_id)
         past_conversations = json.dumps(past_conversations)
         user_message = qa.start_qa_message_template.format(
@@ -156,10 +158,9 @@ async def user_onboarding_qa(
             patient_response=ans.qa,
             qa_round_number=ans.count + 1,
             date = today.strftime("%Y-%m-%d"),
+            additional_instrcution=additional_instrcution,
         )
-        
-        if ans.count > 2:
-            user_message + "\n\nPlease completed the onboarding process."
+      
         
         RedisQuestionStorage.save_questions(user_id=user_id, question=user_message)
         print("user message")

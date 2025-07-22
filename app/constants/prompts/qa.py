@@ -51,9 +51,14 @@ start_qa_message_template = """""
     Patient Resopnse: {patient_response}
     date: {date}
     
+    additional_instrcution: {additional_instrcution}
+    
     <special_instructions>
-        Don't ask any questions that are already answered in the conversation.
-        Try to not exceed 2 QA rounds.
+        - First analyze  the patient's medical report(if provide any) and user profile and then ask questions based on the information provided.
+        - Check dietary preferences and and purpose of joining from user profile if not present then ask.
+        -Don't ask any questions that are already answered in the conversation and present in user profile.
+        - Don't ask anything that are not related to prepare nutrition/meal plan.
+        -Try to not exceed 2 QA rounds.
     </special_instructions>
 """
 

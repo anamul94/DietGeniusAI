@@ -33,7 +33,7 @@ def qa_node(state: QAState):
     # Create a new instance of the ChatBedrock class
     print("Creating ChatBedrock instance")
     chat_bedrock = ModelProvider.chat_bedrock(
-        id=models.NOVA_PRO,
+        id=models.ANTHROPIC_SONNET_3_5,
         max_tokens=4096,
         temperature=0.1,
     )
@@ -76,7 +76,7 @@ def generate_summary(message:str, config):
             temperature=0.1,
         ),
         prompt=qa.qa_session_summarizer_sys_prompt,
-        tools=[mem_tool],
+        tools=[],
         store=store,
     )
     
