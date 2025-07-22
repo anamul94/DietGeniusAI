@@ -19,6 +19,7 @@ from datetime import datetime
 from app.services.redis_storage import RedisQuestionStorage
 from app.constants.prompts import qa
 from app.agents.memory.pg_store import store_manager
+from app.agents.config import langfuse
 
 class MedicalReportPaginator(BasePaginator):
     def get_query(self, user_id: int):
@@ -72,7 +73,7 @@ async def user_onboarding_qa(
         # qa_state.qa = ans.qa
         # qa_state.count = ans.count
         
-        config = {"configurable": {"thread_id": str(user_id)+"09", "user_id": str(user_id)} }
+        config = {"configurable": {"thread_id": str(user_id)+"09", "user_id": str(user_id)}, "callbacks": [langfuse.langfuse_handler]}
         
         today = datetime.now().date()
         
