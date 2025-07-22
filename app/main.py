@@ -1,7 +1,8 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.sessions import SessionMiddleware
-from app.api.routes import users, medical_reports, google_health, meal_entry, daily_activity_summary, websocket, assessment_streaming
+from app.api.routes import users, medical_reports, google_health, meal_entry, daily_activity_summary, websocket, assessment_streaming, qa_summary
+
 from app.core.config import settings
 from app.db.base import Base, engine
 from app.core.logging import setup_logger
@@ -65,6 +66,10 @@ app = FastAPI(
         {
             "name": "assessment-streaming",
             "description": "Real-time assessment streaming with Server-Sent Events"
+        },
+        {
+            "name": "qa-summaries",
+            "description": "QA session summary operations for user health assessments"
         }
     ],
     docs_url="/api/docs",
@@ -110,6 +115,7 @@ app.include_router(google_health.router, prefix="/api/google-health", tags=["goo
 app.include_router(meal_entry.router, prefix="/api/meal-entries", tags=["meal-entries"])
 app.include_router(daily_activity_summary.router, prefix="/api/daily-activity", tags=["daily-activity"])
 app.include_router(assessment_streaming.router, prefix="/api/assessment-streaming", tags=["assessment-streaming"])
+app.include_router(qa_summary.router, prefix="/api/qa-summaries", tags=["qa-summaries"])
 app.include_router(websocket.router)
 
 # Application is now using lifespan parameter for startup/shutdown events

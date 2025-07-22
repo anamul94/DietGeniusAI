@@ -21,3 +21,35 @@ class QASessionSummaryResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+class QASummaryResponse(BaseModel):
+    """Response model for QA summary endpoints returning summary text and date."""
+    summary: str = Field(..., description="Generated summary text from QA session")
+    date: datetime = Field(..., description="Creation date of the summary")
+
+    class Config:
+        from_attributes = True
+        json_schema_extra = {
+            "example": {
+                "summary": "Based on your responses, you have Type 2 diabetes with good glucose control...",
+                "date": "2025-07-15T14:30:00Z"
+            }
+        }
+
+class QASummaryListResponse(BaseModel):
+    """Response model for list of QA summaries."""
+    summaries: list[QASummaryResponse] = Field(..., description="List of QA summaries")
+
+    class Config:
+        json_schema_extra = {
+            "example": [
+                {
+                    "summary": "Based on your responses, you have Type 2 diabetes with good glucose control...",
+                    "date": "2025-07-15T14:30:00Z"
+                },
+                {
+                    "summary": "Initial assessment shows mild hypertension and dietary concerns...",
+                    "date": "2025-07-10T09:15:00Z"
+                }
+            ]
+        }

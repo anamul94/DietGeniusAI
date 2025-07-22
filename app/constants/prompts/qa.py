@@ -81,11 +81,7 @@ Only summarize the Q&A portion of the session. Do not provide dietary recommenda
 Format the summary to be usable by healthcare providers and compliant with professional clinical documentation standards.
 """
 
-memory_extractor_sys_prompt = """
-Extract and save all key information related to the patient's medical history, dietary habits, current health status, activity level, and any relevant medical conditions or allergies. 
 
-Focus on gathering all facts necessary to support a thorough and accurate nutritional assessment. Ensure the extracted details are clear, concise, and relevant to evaluating the patient's nutritional needs and health risks.
-"""
 
 
 qa_conversation_summ_user_template = """

@@ -662,7 +662,7 @@ async def upload_food_nutrition(
     # Validate file types
     if files is not None and len(files) > 0:
         for file in files:
-            if file.content_type not in ["image/jpeg", "image/png"]:
+            if file.content_type not in ["image/jpeg", "image/png", "image/jpg"]:
                 raise HTTPException(
                     status_code=400,
                     detail="Invalid file type. Only JPEG and PNG images are allowed."
