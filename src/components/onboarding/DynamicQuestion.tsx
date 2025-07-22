@@ -23,6 +23,8 @@ interface DynamicQuestionProps {
 export default function DynamicQuestion({ question, onAnswerChange }: DynamicQuestionProps) {
   const [currentAnswer, setCurrentAnswer] = useState('')
 
+  console.log('DynamicQuestion props:', { question, onAnswerChange })
+
   const handleAnswerChange = (answer: string) => {
     setCurrentAnswer(answer)
     onAnswerChange(answer)

@@ -20,10 +20,13 @@ interface OnboardingChatProps {
 }
 
 interface NutritionistQAResponse {
-  questions: Question[]
-  is_complete: boolean
-  message_on_completion?: string
+  data: {
+    questions: Question[]
+    is_complete: boolean
+    message_on_completion?: string
+  }
   count: number
+  summary?: string
 }
 
 export default function OnboardingChat({ onComplete }: OnboardingChatProps) {
@@ -34,6 +37,7 @@ export default function OnboardingChat({ onComplete }: OnboardingChatProps) {
   const [loading, setLoading] = useState(false)
   const [count, setCount] = useState(0)
   const [isComplete, setIsComplete] = useState(false)
+  const [summary, setSummary] = useState('')
   const [showInitialLoadingMessage, setShowInitialLoadingMessage] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [questionKey, setQuestionKey] = useState(0)
@@ -98,10 +102,22 @@ export default function OnboardingChat({ onComplete }: OnboardingChatProps) {
         })
       })
       
-      // Parse the response to handle both old and new formats
+      // Parse the response from the new API structure
       let questions: Question[] = []
-      if (response.questions && Array.isArray(response.questions)) {
+      let isComplete = false
+      let count = 0
+      let summary = ''
+      
+      if (response.data && response.data.questions && Array.isArray(response.data.questions)) {
+        questions = response.data.questions
+        isComplete = response.data.is_complete || false
+        summary = response.summary || response.data.message_on_completion || ''
+      } else if (response.questions && Array.isArray(response.questions)) {
+        // Handle direct response format (legacy)
         questions = response.questions
+        isComplete = response.is_complete || false
+        count = response.count || 0
+        summary = response.summary || ''
       } else if (response.question) {
         // Handle old format - convert to new format
         questions = [{
@@ -109,11 +125,15 @@ export default function OnboardingChat({ onComplete }: OnboardingChatProps) {
           input_type: 'textinput',
           placeholder: 'Type your answer...'
         }]
+        isComplete = response.is_complete || false
+        count = response.count || 0
+        summary = response.summary || ''
       }
       
       setCurrentQuestions(questions)
-      setCount(response.count || 0)
-      setIsComplete(response.is_complete || false)
+      setCount(response.count || count || 0)
+      setIsComplete(isComplete)
+      setSummary(summary)
     } catch (error: any) {
       console.error('Failed to initialize chat:', error)
       if (error.message?.includes('complete your profile')) {
@@ -163,10 +183,6 @@ export default function OnboardingChat({ onComplete }: OnboardingChatProps) {
       answer: combinedAnswers
     }
 
-    const updatedHistory = [...messages, newMessage]
-    setMessages(updatedHistory)
-    setCurrentAnswers({})
-    setQuestionKey(prev => prev + 1) // Force re-mount to clear inputs
     setLoading(true)
 
     try {
@@ -180,32 +196,47 @@ export default function OnboardingChat({ onComplete }: OnboardingChatProps) {
 
       console.log('QA Response:', response)
 
-      if (response.is_complete === true) {
+      // Handle both new API structure and legacy formats
+      let questions: Question[] = []
+      let isComplete = false
+      let summary = ''
+      
+      if (response.data && response.data.questions && Array.isArray(response.data.questions)) {
+        // New API structure
+        questions = response.data.questions
+        isComplete = response.data.is_complete || false
+        summary = response.summary || response.data.message_on_completion || 'Your onboarding is complete!'
+      } else if (response.questions && Array.isArray(response.questions)) {
+        // Legacy direct response format
+        questions = response.questions
+        isComplete = response.is_complete || false
+        summary = response.summary || 'Your onboarding is complete!'
+      } else if (response.question) {
+        // Old format - convert to new format
+        questions = [{
+          question_text: response.question,
+          input_type: 'textinput',
+          placeholder: 'Type your answer...'
+        }]
+        isComplete = response.is_complete || false
+        summary = response.summary || 'Your onboarding is complete!'
+      }
+      
+      // Only clear form after successful response
+      const updatedHistory = [...messages, newMessage]
+      setMessages(updatedHistory)
+      setCurrentAnswers({})
+      setQuestionKey(prev => prev + 1) // Force re-mount to clear inputs
+      
+      if (isComplete === true) {
         setIsComplete(true)
+        setSummary(summary)
         setCurrentQuestions([])
         setCurrentAnswers({})
-        // Redirect to dashboard when complete
-        setTimeout(() => {
-          router.push('/dashboard')
-        }, 2000)
       } else {
         // Increment count for next round
         const nextCount = count + 1
         setCount(nextCount)
-        
-        // Parse the response to handle both old and new formats
-        let questions: Question[] = []
-        if (response.questions && Array.isArray(response.questions)) {
-          questions = response.questions
-        } else if (response.question) {
-          // Handle old format - convert to new format
-          questions = [{
-            question_text: response.question,
-            input_type: 'textinput',
-            placeholder: 'Type your answer...'
-          }]
-        }
-        
         setCurrentQuestions(questions)
       }
     } catch (error: any) {
@@ -216,9 +247,7 @@ export default function OnboardingChat({ onComplete }: OnboardingChatProps) {
     }
   }
 
-  const handleDone = () => {
-    router.push('/dashboard')
-  }
+  
 
   const allQuestionsAnswered = () => {
     return currentQuestions.every(q => currentAnswers[q.question_text]?.trim())
@@ -305,12 +334,22 @@ export default function OnboardingChat({ onComplete }: OnboardingChatProps) {
                     </svg>
                   </div>
                   <h3 className="text-xl font-semibold text-gray-900 mb-2">Assessment Complete!</h3>
-                  <p className="text-gray-600 mb-6">
-                    {currentQuestions.length === 0 && "Thank you for completing the onboarding process!"}
-                  </p>
-                  <Button onClick={handleDone} size="lg">
-                    Get Started
-                  </Button>
+                  <div className="mb-4">
+                    <p className="text-sm text-gray-600">
+                      Questions answered: <span className="font-semibold text-green-600">{count}</span>
+                    </p>
+                  </div>
+                  <div className="prose dark:prose-invert max-w-none mb-8">
+                    <ReactMarkdown>{summary}</ReactMarkdown>
+                  </div>
+                  <div className="flex justify-center gap-4">
+                    <Button onClick={() => router.push('/meal-plan')} size="lg">
+                      Generate Meal Plan
+                    </Button>
+                    <Button onClick={() => router.push('/dashboard')} size="lg" variant="outline">
+                      Go to Dashboard
+                    </Button>
+                  </div>
                 </div>
               )}
 

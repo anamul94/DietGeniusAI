@@ -1,39 +1,60 @@
-# Stage 1: Build the Next.js application
+# Multi-stage build for optimized Next.js production image
+FROM node:20-alpine AS deps
+
+# Install dependencies only when needed
+WORKDIR /app
+
+# Copy package files
+COPY package.json package-lock.json* ./
+RUN npm ci --only=production && npm cache clean --force
+
+# Rebuild the source code only when needed
 FROM node:20-alpine AS builder
 
 WORKDIR /app
-
-# Copy package.json and package-lock.json to leverage Docker cache
-COPY package.json package-lock.json ./
-
-# Install dependencies
-RUN npm install
-
-# Copy the rest of the application code
+COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
-# Build the Next.js application
-# NEXT_PUBLIC_API_URL is needed at build time for static assets/pages
+# Accept build arguments
 ARG NEXT_PUBLIC_API_URL
+ARG NEXT_PUBLIC_TRANSCRIPTION_API_URL
+
+# Set environment variables for build
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
+ENV NEXT_PUBLIC_TRANSCRIPTION_API_URL=$NEXT_PUBLIC_TRANSCRIPTION_API_URL
+ENV NODE_ENV=production
+
+# Build the application
 RUN npm run build
 
-# Stage 2: Run the Next.js application
+# Production image, copy all the files and run next
 FROM node:20-alpine AS runner
 
 WORKDIR /app
 
-# Set environment variables for production
 ENV NODE_ENV=production
 
-# Copy necessary files from the builder stage
-COPY --from=builder /app/public ./public
-COPY --from=builder /app/.next ./.next
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/package.json ./package.json
+# Create non-root user
+RUN addgroup --system --gid 1001 nodejs
+RUN adduser --system --uid 1001 nextjs
 
-# Expose the port Next.js runs on
+# Copy built application
+COPY --from=builder /app/public ./public
+COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
+COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+
+# Switch to non-root user
+USER nextjs
+
+# Expose port
 EXPOSE 3000
 
-# Command to run the application
-CMD ["npm", "start"]
+# Health check
+HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
+    CMD node -e "require('http').get('http://localhost:3000/api/health', (res) => { process.exit(res.statusCode === 200 ? 0 : 1) })"
+
+# Start the application
+ENV PORT=3000
+ENV HOSTNAME="0.0.0.0"
+
+CMD ["node", "server.js"]

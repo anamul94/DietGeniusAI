@@ -17,9 +17,11 @@ interface FoodNutritionAnalyzerProps {
 
 export default function FoodNutritionAnalyzer({ sessionId }: FoodNutritionAnalyzerProps) {
   const [files, setFiles] = useState<File[]>([])
+  const [filePreviews, setFilePreviews] = useState<string[]>([])
   const [servingSize, setServingSize] = useState<string>('')
   const [uploading, setUploading] = useState(false)
   const [nutritionResult, setNutritionResult] = useState<any>(null)
+  const [resultImages, setResultImages] = useState<string[]>([])
   const [dragActive, setDragActive] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [mealType, setMealType] = useState<string>('')
@@ -27,6 +29,7 @@ export default function FoodNutritionAnalyzer({ sessionId }: FoodNutritionAnalyz
   const [consumedAtTime, setConsumedAtTime] = useState<string>(format(new Date(), 'HH:mm'))
   const [mealTypes, setMealTypes] = useState<{ value: string; label: string }[]>([])
   const [loadingMealTypes, setLoadingMealTypes] = useState(true)
+  const [expandedImage, setExpandedImage] = useState<string | null>(null)
 
   useEffect(() => {
     const fetchMealTypes = async () => {
@@ -96,10 +99,20 @@ export default function FoodNutritionAnalyzer({ sessionId }: FoodNutritionAnalyz
       const combined = [...prev, ...validFiles]
       return combined.slice(0, maxFiles)
     })
+
+    // Create preview URLs for new files
+    validFiles.forEach(file => {
+      const reader = new FileReader()
+      reader.onload = (e) => {
+        setFilePreviews(prev => [...prev, e.target?.result as string].slice(0, maxFiles))
+      }
+      reader.readAsDataURL(file)
+    })
   }
 
   const removeFile = (index: number) => {
     setFiles(prev => prev.filter((_, i) => i !== index))
+    setFilePreviews(prev => prev.filter((_, i) => i !== index))
   }
 
   const handleUpload = async () => {
@@ -138,7 +151,9 @@ export default function FoodNutritionAnalyzer({ sessionId }: FoodNutritionAnalyz
       const nutritionData = await nutritionResponse.json()
       console.log('Food Nutrition Data:', nutritionData)
       setNutritionResult(nutritionData.data) // Store the entire data array
+      setResultImages([...filePreviews]) // Store images for results display
       setFiles([]) // Clear files after successful upload
+      setFilePreviews([]) // Clear file previews after successful upload
       setServingSize('') // Clear serving size after successful upload
 
     } catch (error) {
@@ -261,6 +276,24 @@ export default function FoodNutritionAnalyzer({ sessionId }: FoodNutritionAnalyz
               Serving Size: {food.serving_size || '1 serving'}
             </p>
           </div>
+
+          {/* Food Image Display */}
+          {resultImages[index] && (
+            <div className="px-8 pt-6">
+              <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-2xl p-4 border-2 border-gray-200">
+                <h4 className="text-lg font-semibold text-gray-800 mb-3 flex items-center">
+                  <span className="text-xl mr-2">📸</span>
+                  Food Image
+                </h4>
+                <img
+                  src={resultImages[index]}
+                  alt={food.food_name || 'Food image'}
+                  className="w-full max-w-md mx-auto h-64 object-cover rounded-xl shadow-lg cursor-pointer hover:shadow-xl transition-shadow"
+                  onClick={() => setExpandedImage(resultImages[index])}
+                />
+              </div>
+            </div>
+          )}
 
           <div className="p-8">
             {/* Key Macronutrients - Highlighted */}
@@ -386,7 +419,46 @@ export default function FoodNutritionAnalyzer({ sessionId }: FoodNutritionAnalyz
         <div className="text-center mb-8">
           <h2 className="text-4xl font-bold text-slate-900 mb-2">🍽️ Nutrition Analysis Results</h2>
           <p className="text-xl text-slate-600">Detailed breakdown of your food items</p>
+          <Button
+            onClick={() => {
+              setNutritionResult(null)
+              setResultImages([])
+            }}
+            variant="outline"
+            className="mt-4"
+          >
+            Clear Results & Start New Analysis
+          </Button>
         </div>
+
+        {/* Uploaded Images Gallery */}
+        {resultImages.length > 0 && (
+          <div className="mb-12">
+            <div className="bg-gradient-to-br from-purple-50 to-pink-50 rounded-3xl p-8 border-2 border-purple-200">
+              <h3 className="text-2xl font-bold text-purple-900 mb-6 flex items-center">
+                <span className="text-3xl mr-3">📸</span>
+                Uploaded Food Images ({resultImages.length})
+              </h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                {resultImages.map((image, index) => (
+                  <div key={index} className="relative group">
+                    <img
+                      src={image}
+                      alt={`Food image ${index + 1}`}
+                      className="w-full h-48 object-cover rounded-2xl shadow-lg cursor-pointer hover:shadow-xl transition-all duration-300"
+                      onClick={() => setExpandedImage(image)}
+                    />
+                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-all duration-300 rounded-2xl flex items-center justify-center">
+                      <span className="text-white font-medium opacity-0 group-hover:opacity-100 transition-opacity">
+                        Click to expand
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Individual Food Items */}
         <div className="space-y-8 mb-12">
@@ -601,27 +673,36 @@ export default function FoodNutritionAnalyzer({ sessionId }: FoodNutritionAnalyz
               </div>
 
               {files.length > 0 && (
-                <div className="space-y-3">
-                  <h4 className="font-medium text-gray-900">Selected Files ({files.length}/{maxFiles})</h4>
-                  {files.map((file, index) => (
-                    <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                      <div className="flex items-center gap-3">
-                        <span className="text-2xl">{getFileIcon(file.type)}</span>
-                        <div>
-                          <p className="font-medium text-gray-900">{file.name}</p>
-                          <p className="text-sm text-gray-500">{(file.size / 1024 / 1024).toFixed(2)} MB</p>
+                <div className="space-y-6">
+                  <h4 className="font-semibold text-xl text-gray-900">Selected Images ({files.length}/{maxFiles})</h4>
+                  
+                  {/* Image Gallery */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {filePreviews.map((preview, index) => (
+                      <div key={index} className="relative group">
+                        <img
+                          src={preview}
+                          alt={files[index]?.name || `Food image ${index + 1}`}
+                          className="w-full h-48 object-cover rounded-xl border-2 border-gray-200 cursor-pointer hover:border-green-400 transition-all duration-200"
+                          onClick={() => setExpandedImage(preview)}
+                        />
+                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-all duration-200 rounded-xl flex items-center justify-center">
+                          <span className="text-white font-medium opacity-0 group-hover:opacity-100 transition-opacity">
+                            Click to expand
+                          </span>
+                        </div>
+                        <button
+                          onClick={() => removeFile(index)}
+                          className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-2 opacity-0 group-hover:opacity-100 transition-all duration-200 hover:bg-red-600"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                        <div className="absolute bottom-2 left-2 bg-black/70 text-white text-xs px-2 py-1 rounded">
+                          {files[index]?.name}
                         </div>
                       </div>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => removeFile(index)}
-                        className="text-red-600 hover:text-red-700"
-                      >
-                        <X className="w-4 h-4" />
-                      </Button>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                 </div>
               )}
 
@@ -639,6 +720,29 @@ export default function FoodNutritionAnalyzer({ sessionId }: FoodNutritionAnalyz
           </CardContent>
         </Card>
       </div>
+
+      {/* Expanded Image Modal */}
+      {expandedImage && (
+        <div
+          className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4"
+          onClick={() => setExpandedImage(null)}
+        >
+          <div className="relative max-w-4xl max-h-full">
+            <img
+              src={expandedImage}
+              alt="Expanded food image"
+              className="max-w-full max-h-full rounded-lg"
+              onClick={(e) => e.stopPropagation()}
+            />
+            <button
+              onClick={() => setExpandedImage(null)}
+              className="absolute -top-4 -right-4 bg-white text-black rounded-full p-2 shadow-lg hover:bg-gray-100"
+            >
+              <X className="w-6 h-6" />
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
