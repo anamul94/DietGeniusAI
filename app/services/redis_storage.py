@@ -111,5 +111,53 @@ class RedisQuestionStorage:
         """
         return len(RedisQuestionStorage.get_questions(user_id))
 
+    @staticmethod
+    def delete_user_data(user_id: str, data_type: str = "qa") -> bool:
+        """
+        Delete user data from Redis by user ID and data type.
+        
+        Args:
+            user_id: The user ID
+            data_type: Type of data to delete (default: "qa" for questions)
+                      Can be "qa", "profile", "preferences", etc.
+        
+        Returns:
+            bool: True if successful, False otherwise
+        """
+        try:
+            key = f"{user_id}-{data_type}"
+            result = redis_client.delete(key)
+            
+            if result == 1:
+                logger.info(f"✅ Deleted {data_type} data for user {user_id}")
+                return True
+            else:
+                logger.info(f"ℹ️ No {data_type} data found for user {user_id}")
+                return True  # Return True even if key didn't exist
+            
+        except Exception as e:
+            logger.error(f"❌ Failed to delete {data_type} data for user {user_id}: {e}")
+            return False
+
+    @staticmethod
+    def delete_all_user_data(user_id: str) -> Dict[str, bool]:
+        """
+        Delete all Redis data associated with a user ID.
+        
+        Args:
+            user_id: The user ID
+            
+        Returns:
+            Dict[str, bool]: Dictionary with deletion results for each data type
+        """
+        data_types = ["qa", "profile", "preferences", "settings", "cache"]
+        results = {}
+        
+        for data_type in data_types:
+            results[data_type] = RedisQuestionStorage.delete_user_data(user_id, data_type)
+        
+        logger.info(f"✅ Completed deletion of all data for user {user_id}")
+        return results
+
 # Create a singleton instance
 question_storage = RedisQuestionStorage()

@@ -191,6 +191,7 @@ async def user_onboarding_qa(
             user.onboarding_status = "completed"
             db.add(user)
             db.commit()
+            RedisQuestionStorage.delete_all_user_data(user_id=user_id)
             
             # Save summary to database
             try:
@@ -212,6 +213,7 @@ async def user_onboarding_qa(
                 db.add(qa_summary)
                 db.commit()
                 logger.info(f"QA session summary saved for user {user_id}")
+                
                
             except SQLAlchemyError as e:
                 logger.error(f"Error saving QA session summary: {str(e)}")
