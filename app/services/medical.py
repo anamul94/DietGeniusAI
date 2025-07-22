@@ -155,16 +155,22 @@ async def user_onboarding_qa(
             medical_report=json.dumps(reports_data),
             patient_response=ans.qa,
             qa_round_number=ans.count + 1,
-            date = today.strftime("%Y-%m-%d")
+            date = today.strftime("%Y-%m-%d"),
         )
         
-        if ans.count > 3:
+        if ans.count > 2:
             user_message + "\n\nPlease completed the onboarding process."
         
         RedisQuestionStorage.save_questions(user_id=user_id, question=user_message)
         print("user message")
         # print(user_message)
-        user_message + "\n\nPast conversations: " + past_conversations
+        # user_message.format(
+        #     past_conversations=past_conversations
+        # )
+        user_message = user_message + "\n\nPrevious QA Round ." + json.dumps(past_conversations)
+        print("***************************************************")
+        print(user_message)
+        print("***************************************************")
         response =  graph.invoke({"message":user_message}, config=config)
         summary = ""
         print("accessing is completed")
@@ -176,10 +182,10 @@ async def user_onboarding_qa(
                 conversation=conversations,
                 date= today.strftime("%Y-%m-%d")
             )
-            summary = generate_summary(message=conv_summ_msg)
-            store_manager.invoke({
-                "messages": conv_summ_msg,
-            }, config=config)
+            summary = generate_summary(message=conv_summ_msg, config=config)
+            # store_manager.invoke({
+            #     "messages": conv_summ_msg,
+            # }, config=config)
             # Update user onboarding status to completed
             user.onboarding_status = "completed"
             db.add(user)

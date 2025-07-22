@@ -53,7 +53,7 @@ start_qa_message_template = """""
     
     <special_instructions>
         Don't ask any questions that are already answered in the conversation.
-        Try to not exceed 4 QA rounds.
+        Try to not exceed 2 QA rounds.
     </special_instructions>
 """
 

@@ -18,6 +18,7 @@ from app.constants.prompts import qa
 from app.agents.memory import get_checkpointer
 from app.agents.models.model_provider import ModelProvider
 from app.agents.memory.pg_store import store
+from app.constants.agent_const import NAMESPACE
 
 
 settings = Settings()
@@ -67,15 +68,16 @@ graph = graph_builder.compile(checkpointer=checkpointer)
 
 def generate_summary(message:str, config):
     """Generate summary using the checkpointer."""
-    
+    mem_tool = create_manage_memory_tool(namespace=NAMESPACE, instructions=qa.memory_extractor_sys_prompt)
     agent =  create_react_agent(
         model=ModelProvider.chat_bedrock(
             id=models.NOVA_PRO,
             max_tokens=4096,
             temperature=0.1,
         ),
-        system_message=qa.qa_session_summarizer_sys_prompt,
-        tools=[],
+        prompt=qa.qa_session_summarizer_sys_prompt,
+        tools=[mem_tool],
+        store=store,
     )
     
     response = agent.invoke(
