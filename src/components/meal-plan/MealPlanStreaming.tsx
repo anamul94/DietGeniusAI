@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/Card";
 import { Button } from "@/components/ui/button";
 import { CalendarIcon, Loader2, ArrowLeft, Brain } from "lucide-react";
-import ReactMarkdown from "react-markdown";
+import MarkdownRenderer from "@/components/ui/MarkdownRenderer";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { format } from "date-fns";
@@ -221,12 +221,16 @@ const MealPlanStreaming = ({ mode }: MealPlanStreamingProps) => {
     if (isGenerating) {
       if (streamingContent) {
         return (
-          <div className="prose max-w-none">
+          <div>
             <h3 className="text-xl font-semibold text-gray-900 mb-2">
               Generating Meal Plan...
             </h3>
             <div className="bg-gray-50 p-4 rounded-lg">
-              <ReactMarkdown>{streamingContent}</ReactMarkdown>
+              <MarkdownRenderer
+                content={streamingContent}
+                cacheKey={`streaming-${sessionId}`}
+                className="text-sm"
+              />
             </div>
           </div>
         );
@@ -266,12 +270,15 @@ const MealPlanStreaming = ({ mode }: MealPlanStreamingProps) => {
 
     if (mealPlan) {
       return (
-        <div className="prose max-w-none">
+        <div>
           <h3 className="text-xl font-semibold text-gray-900 mb-2">
             Meal Plan for {format(new Date(mealPlan.plan_date), 'MMMM d, yyyy')}
           </h3>
           {typeof mealPlan.meal_plan === 'string' ? (
-            <ReactMarkdown>{mealPlan.meal_plan}</ReactMarkdown>
+            <MarkdownRenderer
+              content={mealPlan.meal_plan}
+              cacheKey={`mealplan-${mealPlan.id}`}
+            />
           ) : (
             <p className="text-red-500">Error: Invalid meal plan data</p>
           )}

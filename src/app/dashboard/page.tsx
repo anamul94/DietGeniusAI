@@ -5,10 +5,11 @@ import { useRouter } from 'next/navigation'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card'
 import { Button } from '@/components/ui/button'
 import { apiCall } from '@/lib/utils'
-import { User, FileText, Activity, Settings, LogOut, Brain, RefreshCw } from 'lucide-react'
+import { User, FileText, Activity, Settings, LogOut, Brain, RefreshCw, ClipboardList } from 'lucide-react'
 import GoogleHealthLogin from '@/components/auth/GoogleHealthLogin'
 import GoogleHealthDataFetcher from '@/components/google-health/GoogleHealthDataFetcher'
 import GoogleHealthStatusAndRevoke from '@/components/google-health/GoogleHealthStatusAndRevoke'
+import QASummaryModal from '@/components/QASummaryModal'
 
 
 interface UserProfile {
@@ -22,6 +23,7 @@ interface UserProfile {
 export default function DashboardPage() {
   const [user, setUser] = useState<UserProfile | null>(null)
   const [loading, setLoading] = useState(true)
+  const [showQASummary, setShowQASummary] = useState(false)
   const router = useRouter()
 
   useEffect(() => {
@@ -273,6 +275,30 @@ export default function DashboardPage() {
             </CardContent>
           </Card>
 
+          {/* QA Session Summary Card */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <ClipboardList className="w-5 h-5 text-primary" />
+                QA Session Summary
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-muted-foreground mb-4">
+                View your latest AI-generated health assessment summary based on your questionnaire responses.
+              </p>
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full"
+                onClick={() => setShowQASummary(true)}
+              >
+                <ClipboardList className="w-4 h-4 mr-2" />
+                View Summary
+              </Button>
+            </CardContent>
+          </Card>
+
           {/* Google Health Status & Revoke Card */}
           <Card>
             <CardHeader>
@@ -338,6 +364,11 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
       </main>
+
+      <QASummaryModal
+        isOpen={showQASummary}
+        onClose={() => setShowQASummary(false)}
+      />
     </div>
   )
 }
