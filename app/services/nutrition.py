@@ -60,7 +60,32 @@ async def parse_nutrition(
         
         data = await bedrock_service.process_multiple_images(files=image_to_process,
                                                            prompt=FOOD_NAME_EXTRACTION_INSTRUCTION)
-        food_items = [item["report"] for item in data]
+        
+        logger.info(f"Data received from bedrock service: {type(data)} - {data}")
+        
+        # Handle different data structures returned by bedrock service
+        food_items = []
+        if isinstance(data, list):
+            for item in data:
+                if isinstance(item, dict):
+                    # Handle dict structure
+                    if "report" in item:
+                        food_items.append(item["report"])
+                    elif "filename" in item and "report" in item:
+                        food_items.append(item["report"])
+                    else:
+                        # If it's a dict but not the expected structure, use the whole item
+                        food_items.append(str(item))
+                elif isinstance(item, tuple) and len(item) >= 2:
+                    # Handle tuple structure (filename, report)
+                    food_items.append(str(item[1]))
+                else:
+                    # Fallback for any other structure
+                    food_items.append(str(item))
+        else:
+            # If data is not a list, treat it as a single item
+            logger.warning(f"Unexpected data structure from bedrock: {type(data)}")
+            food_items.append(str(data))
         message = f"""
                     Food items: {food_items}  
                     Serving size: {serving_size}

@@ -107,7 +107,10 @@ class BedrockService:
             
             # Determine image format from filename
             file_ext = filename.lower().split('.')[-1]
-            media_type = f"image/{file_ext}" if file_ext in ['jpeg', 'jpg', 'png', 'webp'] else "image/jpeg"
+            # Map jpg to jpeg for AWS Bedrock compatibility
+            if file_ext == 'jpg':
+                file_ext = 'jpeg'
+            media_type = f"image/{file_ext}" if file_ext in ['jpeg', 'png', 'webp', 'gif'] else "image/jpeg"
 
             conversation = [
                 {
@@ -126,7 +129,7 @@ class BedrockService:
 
             try:
                 response = self.client.converse(
-                    modelId=META_LLMA_3_70B,
+                    modelId=ANTHROPIC_SONNET_3_5,
                     messages=conversation,
                     inferenceConfig={"temperature": 0.1},
                 )
@@ -138,7 +141,7 @@ class BedrockService:
 
             except (ClientError, Exception) as e:
                 logger.error(f"Error processing image {filename}: {str(e)}")
-                results.append((filename, f"ERROR: {str(e)}"))
+                results.append((filename,""))
 
         return results
     
@@ -167,7 +170,10 @@ class BedrockService:
 
             # Detect format
             file_ext = filename.lower().split('.')[-1]
-            if file_ext not in ['jpeg', 'jpg', 'png']:
+            # Map jpg to jpeg and ensure valid formats
+            if file_ext == 'jpg':
+                file_ext = 'jpeg'
+            if file_ext not in ['jpeg', 'png', 'webp', 'gif']:
                 file_ext = 'jpeg'
 
             # Bedrock Claude expects this structure - directly use bytes
